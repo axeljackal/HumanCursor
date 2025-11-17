@@ -137,7 +137,11 @@ class HumanizeMouseTrajectory:
     @staticmethod
     def check_if_numeric(val):
         """Checks if value is proper numeric value"""
-        return isinstance(val, (float, int, np.int32, np.int64, np.float32, np.float64))
+        return isinstance(val, (float, int)) or (
+            hasattr(np, 'integer') and isinstance(val, np.integer)
+        ) or (
+            hasattr(np, 'floating') and isinstance(val, np.floating)
+        )
 
     def check_if_list_of_points(self, list_of_points):
         """Checks if list of points is valid"""
