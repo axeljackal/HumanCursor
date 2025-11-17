@@ -26,6 +26,28 @@ from humancursor.constants import (
 )
 
 
+def calculate_edge_proximity(point: tuple | list, viewport_width: int, viewport_height: int) -> float:
+    """Calculate how close a point is to viewport edges
+    
+    Args:
+        point: (x, y) coordinates as tuple or list
+        viewport_width: Width of viewport
+        viewport_height: Height of viewport
+        
+    Returns:
+        Float between 0 (center) and 1 (edge) representing proximity to nearest edge
+    """
+    x, y = point
+    
+    # Distance to nearest edge (normalized to 0-1, where 1 is center, 0 is edge)
+    x_proximity = min(x / viewport_width, (viewport_width - x) / viewport_width) * 2
+    y_proximity = min(y / viewport_height, (viewport_height - y) / viewport_height) * 2
+    
+    # Return inverse (1 at edge, 0 at center)
+    edge_proximity = 1 - min(x_proximity, y_proximity)
+    return max(0, min(edge_proximity, 1))  # Clamp to [0, 1]
+
+
 def calculate_absolute_offset(element, list_of_x_and_y_offsets: list) -> list:
     """Calculates exact number of pixel offsets from relative values
     
@@ -92,6 +114,12 @@ def generate_random_curve_parameters(driver, pre_origin: tuple | list, post_dest
 
     tween = random.choice(tween_options)
     
+    # Calculate distance once for both knots and target_points
+    distance = math.sqrt(
+        (pre_origin[0] - post_destination[0]) ** 2 + 
+        (pre_origin[1] - post_destination[1]) ** 2
+    )
+    
     # Select offset boundaries with weighted randomness
     offset_boundary_x = random.choice(
         random.choices(
@@ -106,47 +134,50 @@ def generate_random_curve_parameters(driver, pre_origin: tuple | list, post_dest
         )[0]
     )
     
-    knots_count = random.choices(KNOTS_COUNT_OPTIONS, KNOTS_COUNT_WEIGHTS)[0]
+    # Randomize thresholds to prevent fingerprinting
+    threshold_1 = random.uniform(80, 120)    # ~100px nominal
+    threshold_2 = random.uniform(400, 600)   # ~500px nominal
+    
+    # Scale knots with distance using randomized thresholds
+    if distance < threshold_1:
+        options = [1, 2]
+        weights = [0.65, 0.35]
+    elif distance < threshold_2:
+        options = [2, 3, 4]
+        weights = [0.45, 0.40, 0.15]
+    else:
+        options = [3, 4, 5, 6]
+        weights = [0.35, 0.40, 0.18, 0.07]
+    
+    knots_count = random.choices(options, weights)[0]
 
     distortion_mean = random.choice(range(DISTORTION_MEAN_MIN, DISTORTION_MEAN_MAX)) / 100
     distortion_st_dev = random.choice(range(DISTORTION_STDEV_MIN, DISTORTION_STDEV_MAX)) / 100
     distortion_frequency = random.choice(range(DISTORTION_FREQ_MIN, DISTORTION_FREQ_MAX)) / 100
 
-    if is_web_driver:
-        target_points = random.choice(
-            random.choices(
-                [TARGET_POINTS_RANGE_LOW, TARGET_POINTS_RANGE_MID, TARGET_POINTS_RANGE_HIGH],
-                TARGET_POINTS_WEIGHTS
-            )[0]
-        )
+    # Use logarithmic scaling with distance-based tiers
+    # Short movements: higher density | Long movements: logarithmic growth
+    if distance < 100:
+        target_points = max(int(distance * 0.6), 30)  # 0.6 points/pixel, min 30
+    elif distance < 500:
+        target_points = int(60 + 40 * math.log2(distance / 100))  # Logarithmic scaling
     else:
-        # For system cursor, calculate based on distance
-        distance = math.sqrt(
-            (pre_origin[0] - post_destination[0]) ** 2 + 
-            (pre_origin[1] - post_destination[1]) ** 2
-        )
-        target_points = max(int(distance), 2)
-
-    # Reduce complexity if origin or destination is near viewport edge
-    if (
-            min_width > pre_origin[0]
-            or max_width < pre_origin[0]
-            or min_height > pre_origin[1]
-            or max_height < pre_origin[1]
-    ):
-        offset_boundary_x = 1
-        offset_boundary_y = 1
-        knots_count = 1
+        target_points = int(100 + 50 * math.log2(distance / 500))  # Continued scaling
     
-    if (
-            min_width > post_destination[0]
-            or max_width < post_destination[0]
-            or min_height > post_destination[1]
-            or max_height < post_destination[1]
-    ):
-        offset_boundary_x = 1
-        offset_boundary_y = 1
-        knots_count = 1
+    # Cap to prevent excessive computation
+    target_points = min(target_points, 250)
+
+    # Gradually reduce complexity based on edge proximity
+    origin_edge_proximity = calculate_edge_proximity(pre_origin, viewport_width, viewport_height)
+    dest_edge_proximity = calculate_edge_proximity(post_destination, viewport_width, viewport_height)
+    max_edge_proximity = max(origin_edge_proximity, dest_edge_proximity)
+    
+    # Scale boundaries instead of binary reduction
+    # At edge: 70% boundary reduction, 50% knot reduction
+    # At center: No reduction
+    offset_boundary_x = int(offset_boundary_x * (1 - max_edge_proximity * 0.7))
+    offset_boundary_y = int(offset_boundary_y * (1 - max_edge_proximity * 0.7))
+    knots_count = max(1, int(knots_count * (1 - max_edge_proximity * 0.5)))
 
     return (
         offset_boundary_x,
