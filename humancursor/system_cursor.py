@@ -1,5 +1,6 @@
-from time import sleep
+from time import sleep, time
 import random
+import math
 import pyautogui
 from typing import Union, Optional, Tuple, List
 
@@ -15,6 +16,61 @@ from humancursor.constants import (
     STEADY_DISTORTION_STDEV,
     STEADY_DISTORTION_FREQ,
 )
+
+
+class _CursorContext:
+    """Internal class to track cursor usage context for realistic speed variation"""
+    
+    def __init__(self):
+        self.start_time = time()
+        self.movement_count = 0
+        self.last_movement_time = time()
+        self.recent_targets = []  # Track last 5 target sizes
+    
+    def record_movement(self, target_size: Optional[float] = None):
+        """Record a movement for fatigue and pattern tracking"""
+        self.movement_count += 1
+        self.last_movement_time = time()
+        if target_size is not None:
+            self.recent_targets.append(target_size)
+            if len(self.recent_targets) > 5:
+                self.recent_targets.pop(0)
+    
+    def get_fatigue_factor(self) -> float:
+        """Calculate fatigue factor based on usage duration
+        
+        Returns:
+            Float between 1.0 (no fatigue) and 1.15 (15% slower after 30+ minutes)
+        """
+        elapsed_minutes = (time() - self.start_time) / 60
+        # Gradual slowdown: 1% per 2 minutes, capped at 15%
+        fatigue = 1.0 + min(elapsed_minutes / 2 * 0.01, 0.15)
+        return fatigue
+    
+    def get_repetition_factor(self) -> float:
+        """Calculate speed boost from repeated similar actions
+        
+        Returns:
+            Float between 0.85 (15% faster) and 1.0 (normal speed)
+        """
+        if self.movement_count < 3:
+            return 1.0  # No boost for first few movements
+        
+        # Check if recent movements are similar (target size variance)
+        if len(self.recent_targets) < 3:
+            return 1.0
+        
+        # Calculate variance in recent target sizes
+        avg_size = sum(self.recent_targets) / len(self.recent_targets)
+        variance = sum((s - avg_size) ** 2 for s in self.recent_targets) / len(self.recent_targets)
+        
+        # Low variance (repetitive tasks) = faster movements
+        if variance < 100:  # Similar targets
+            return 0.85  # 15% speed boost
+        elif variance < 500:
+            return 0.92  # 8% speed boost
+        else:
+            return 1.0  # No boost for varied tasks
 
 
 class SystemCursor:
@@ -37,6 +93,9 @@ class SystemCursor:
         pyautogui.MINIMUM_DURATION = 0
         pyautogui.MINIMUM_SLEEP = 0
         pyautogui.PAUSE = 0
+        
+        # Initialize context for speed variation
+        self._context = _CursorContext()
     
     def cleanup(self):
         """Restore original pyautogui settings.
@@ -48,15 +107,64 @@ class SystemCursor:
         pyautogui.MINIMUM_SLEEP = self._original_min_sleep
         pyautogui.PAUSE = self._original_pause
 
-    @staticmethod
-    def move_to(point: Union[List, Tuple], duration: Union[int, float, None] = None, human_curve=None, steady=False):
+    def _calculate_movement_duration(self, from_point: Tuple, to_point: Union[List, Tuple], target_size: float = 12.0) -> float:
+        """Calculate realistic movement duration based on Fitts' Law with contextual variation
+        
+        Fitts' Law: MT = a + b * log2(D/W + 1)
+        Adjusted for: target size, fatigue, and repetition patterns
+        
+        Args:
+            from_point: Starting coordinates (x, y)
+            to_point: Ending coordinates (x, y)
+            target_size: Target size in pixels (smaller = slower)
+            
+        Returns:
+            Duration in seconds for the movement
+        """
+        # Calculate Euclidean distance
+        distance = math.sqrt(
+            (to_point[0] - from_point[0])**2 + 
+            (to_point[1] - from_point[1])**2
+        )
+        
+        # Randomize Fitts' Law coefficients per movement (prevents fingerprinting)
+        a = random.uniform(0.08, 0.12)     # Intercept (reaction time component)
+        b = random.uniform(0.12, 0.18)     # Slope (movement time component)
+        
+        # Use provided target size (smaller targets = longer time)
+        target_width = max(target_size, 5)  # Minimum 5px to avoid division issues
+        
+        # Calculate Index of Difficulty and apply Fitts' Law
+        index_of_difficulty = math.log2(distance / target_width + 1)
+        base_time = a + b * index_of_difficulty
+        
+        # Apply contextual speed variations
+        fatigue_factor = self._context.get_fatigue_factor()  # 1.0 to 1.15 (slower over time)
+        repetition_factor = self._context.get_repetition_factor()  # 0.85 to 1.0 (faster when repeating)
+        
+        # Combine factors
+        base_time *= fatigue_factor * repetition_factor
+        
+        # Add human variability: ±25% with slight bias toward slower movements
+        duration = base_time * random.uniform(0.75, 1.30)
+        
+        # Clamp to reasonable range (150ms minimum, 3s maximum)
+        duration = max(0.15, min(duration, 3.0))
+        
+        # Record movement for context tracking
+        self._context.record_movement(target_size)
+        
+        return duration
+
+    def move_to(self, point: Union[List, Tuple], duration: Union[int, float, None] = None, human_curve=None, steady=False, target_size: float = 12.0):
         """Moves to certain coordinates of screen
         
         Args:
             point: Target coordinates as [x, y] or (x, y)
-            duration: Movement duration in seconds (None for random 0.5-2.0s)
+            duration: Movement duration in seconds (None for auto-calculated with Fitts' Law)
             human_curve: Pre-generated HumanizeMouseTrajectory curve
             steady: If True, uses straighter movement path
+            target_size: Estimated target size in pixels (affects speed for small targets)
             
         Raises:
             TypeError: If point is not a list or tuple
@@ -72,12 +180,12 @@ class SystemCursor:
         from_point = pyautogui.position()
 
         if not human_curve:
-            human_curve = SystemCursor._generate_human_curve(from_point, point, steady)
+            human_curve = self._generate_human_curve(from_point, point, steady)
 
         if duration is None:
-            duration = random.uniform(DEFAULT_DURATION_MIN, DEFAULT_DURATION_MAX)
+            duration = self._calculate_movement_duration(from_point, point, target_size)
         
-        SystemCursor._execute_curve_movement(human_curve, point, duration)
+        self._execute_curve_movement(human_curve, point, duration)
     
     @staticmethod
     def _generate_human_curve(from_point: Tuple, to_point: Union[List, Tuple], steady: bool) -> HumanizeMouseTrajectory:
@@ -144,7 +252,7 @@ class SystemCursor:
             pyautogui.moveTo(point)
         pyautogui.moveTo(final_point)
 
-    def click_on(self, point: Union[List, Tuple], clicks: int = 1, click_duration: Union[int, float] = 0, steady=False):
+    def click_on(self, point: Union[List, Tuple], clicks: int = 1, click_duration: Union[int, float] = 0, steady=False, target_size: float = 12.0):
         """Clicks a specified number of times, on the specified coordinates
         
         Args:
@@ -152,6 +260,7 @@ class SystemCursor:
             clicks: Number of times to click (must be positive)
             click_duration: Duration to hold mouse button down in seconds
             steady: If True, uses straighter movement path
+            target_size: Estimated target size in pixels
             
         Raises:
             ValueError: If clicks is not a positive integer
@@ -162,7 +271,12 @@ class SystemCursor:
         if not isinstance(click_duration, (int, float)) or click_duration < 0:
             raise ValueError(f"Click duration must be non-negative, got {click_duration}")
         
-        self.move_to(point, steady=steady)
+        self.move_to(point, steady=steady, target_size=target_size)
+        
+        # Add realistic pre-click pause (humans don't click instantly after arriving)
+        pre_click_pause = random.uniform(0.05, 0.15)  # 50-150ms pause before clicking
+        sleep(pre_click_pause)
+        
         for _ in range(clicks):
             pyautogui.mouseDown()
             sleep(click_duration)
@@ -198,3 +312,41 @@ class SystemCursor:
         pyautogui.mouseDown()
         self.move_to(to_point, duration=second_duration, steady=steady)
         pyautogui.mouseUp()
+    
+    @staticmethod
+    def idle_jitter(duration: float = 1.0, intensity: float = 1.0):
+        """Simulate natural hand tremor while hovering/idle
+        
+        Humans exhibit tiny random movements when holding the mouse still,
+        simulating natural hand tremor and micro-adjustments.
+        
+        Args:
+            duration: How long to jitter in seconds (default 1.0)
+            intensity: Jitter intensity multiplier (default 1.0, range 0.5-2.0)
+            
+        Raises:
+            ValueError: If duration or intensity are invalid
+        """
+        if not isinstance(duration, (int, float)) or duration <= 0:
+            raise ValueError(f"Duration must be positive, got {duration}")
+        if not isinstance(intensity, (int, float)) or intensity <= 0:
+            raise ValueError(f"Intensity must be positive, got {intensity}")
+        
+        intensity = max(0.5, min(intensity, 2.0))  # Clamp to reasonable range
+        
+        # Number of micro-movements (10 per second)
+        iterations = int(duration * 10)
+        interval = duration / iterations
+        
+        for _ in range(iterations):
+            # Tiny random offset (±1-3 pixels scaled by intensity)
+            max_offset = 3 * intensity
+            x_offset = random.uniform(-max_offset, max_offset)
+            y_offset = random.uniform(-max_offset, max_offset)
+            
+            current_pos = pyautogui.position()
+            new_x = current_pos[0] + x_offset
+            new_y = current_pos[1] + y_offset
+            
+            pyautogui.moveTo(new_x, new_y, duration=interval)
+            sleep(interval)
