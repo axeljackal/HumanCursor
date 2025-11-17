@@ -5,8 +5,22 @@ import pytweening
 import random
 
 
-def calculate_absolute_offset(element, list_of_x_and_y_offsets):
-    """Calculates exact number of pixel offsets from relative values"""
+def calculate_absolute_offset(element, list_of_x_and_y_offsets: list) -> list:
+    """Calculates exact number of pixel offsets from relative values
+    
+    Args:
+        element: WebElement with size property
+        list_of_x_and_y_offsets: [x_percent, y_percent] as floats (0.0 to 1.0)
+        
+    Returns:
+        [x_pixels, y_pixels] as integers
+        
+    Raises:
+        ValueError: If offsets list doesn't have exactly 2 values
+    """
+    if not isinstance(list_of_x_and_y_offsets, list) or len(list_of_x_and_y_offsets) != 2:
+        raise ValueError("Offsets must be a list of 2 values [x, y]")
+    
     dimensions = element.size
     width, height = dimensions["width"], dimensions["height"]
     x_final = width * list_of_x_and_y_offsets[0]
