@@ -31,7 +31,7 @@ _**HumanCursor**_ is a Python package that allows you to _**simulate realistic h
 
 # Requirements
 
-- ```Python >= 3.7```
+- ```Python >= 3.10```
   - [Download the installer](https://www.python.org/downloads/), run it and follow the steps.
   - Make sure to check the box that says `Add Python to PATH` during installation.
   - Reboot computer.
