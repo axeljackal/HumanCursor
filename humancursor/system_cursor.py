@@ -4,6 +4,16 @@ import pyautogui
 
 from humancursor.utilities.human_curve_generator import HumanizeMouseTrajectory
 from humancursor.utilities.calculate_and_randomize import generate_random_curve_parameters
+from humancursor.constants import (
+    DEFAULT_DURATION_MIN,
+    DEFAULT_DURATION_MAX,
+    CLICK_PAUSE_MIN,
+    CLICK_PAUSE_MAX,
+    STEADY_OFFSET_BOUNDARY,
+    STEADY_DISTORTION_MEAN,
+    STEADY_DISTORTION_STDEV,
+    STEADY_DISTORTION_FREQ,
+)
 
 
 class SystemCursor:
@@ -43,40 +53,71 @@ class SystemCursor:
         from_point = pyautogui.position()
 
         if not human_curve:
-            (
-                offset_boundary_x,
-                offset_boundary_y,
-                knots_count,
-                distortion_mean,
-                distortion_st_dev,
-                distortion_frequency,
-                tween,
-                target_points,
-            ) = generate_random_curve_parameters(
-                pyautogui, from_point, point
-            )
-            if steady:
-                offset_boundary_x, offset_boundary_y = 10, 10
-                distortion_mean, distortion_st_dev, distortion_frequency = 1.2, 1.2, 1
-            human_curve = HumanizeMouseTrajectory(
-                from_point,
-                point,
-                offset_boundary_x=offset_boundary_x,
-                offset_boundary_y=offset_boundary_y,
-                knots_count=knots_count,
-                distortion_mean=distortion_mean,
-                distortion_st_dev=distortion_st_dev,
-                distortion_frequency=distortion_frequency,
-                tween=tween,
-                target_points=target_points,
-            )
+            human_curve = SystemCursor._generate_human_curve(from_point, point, steady)
 
         if duration is None:
-            duration = random.uniform(0.5, 2.0)
+            duration = random.uniform(DEFAULT_DURATION_MIN, DEFAULT_DURATION_MAX)
+        
+        SystemCursor._execute_curve_movement(human_curve, point, duration)
+    
+    @staticmethod
+    def _generate_human_curve(from_point: tuple, to_point: list | tuple, steady: bool) -> HumanizeMouseTrajectory:
+        """Generate a human-like movement curve between two points.
+        
+        Args:
+            from_point: Starting coordinates
+            to_point: Ending coordinates
+            steady: If True, uses less curvature
+            
+        Returns:
+            HumanizeMouseTrajectory object with the curve points
+        """
+        (
+            offset_boundary_x,
+            offset_boundary_y,
+            knots_count,
+            distortion_mean,
+            distortion_st_dev,
+            distortion_frequency,
+            tween,
+            target_points,
+        ) = generate_random_curve_parameters(
+            pyautogui, from_point, to_point
+        )
+        
+        if steady:
+            offset_boundary_x = STEADY_OFFSET_BOUNDARY
+            offset_boundary_y = STEADY_OFFSET_BOUNDARY
+            distortion_mean = STEADY_DISTORTION_MEAN
+            distortion_st_dev = STEADY_DISTORTION_STDEV
+            distortion_frequency = STEADY_DISTORTION_FREQ
+        
+        return HumanizeMouseTrajectory(
+            from_point,
+            to_point,
+            offset_boundary_x=offset_boundary_x,
+            offset_boundary_y=offset_boundary_y,
+            knots_count=knots_count,
+            distortion_mean=distortion_mean,
+            distortion_st_dev=distortion_st_dev,
+            distortion_frequency=distortion_frequency,
+            tween=tween,
+            target_points=target_points,
+        )
+    
+    @staticmethod
+    def _execute_curve_movement(human_curve: HumanizeMouseTrajectory, final_point: list | tuple, duration: float) -> None:
+        """Execute the cursor movement along the generated curve.
+        
+        Args:
+            human_curve: The curve to follow
+            final_point: Final destination point
+            duration: Total duration for the movement
+        """
         pyautogui.PAUSE = duration / len(human_curve.points)
-        for pnt in human_curve.points:
-            pyautogui.moveTo(pnt)
-        pyautogui.moveTo(point)
+        for point in human_curve.points:
+            pyautogui.moveTo(point)
+        pyautogui.moveTo(final_point)
 
     def click_on(self, point: list | tuple, clicks: int = 1, click_duration: int | float = 0, steady=False):
         """Clicks a specified number of times, on the specified coordinates
@@ -101,7 +142,7 @@ class SystemCursor:
             pyautogui.mouseDown()
             sleep(click_duration)
             pyautogui.mouseUp()
-            sleep(random.uniform(0.170, 0.280))
+            sleep(random.uniform(CLICK_PAUSE_MIN, CLICK_PAUSE_MAX))
 
     def drag_and_drop(self, from_point: list | tuple, to_point: list | tuple, duration: int | float | list | tuple | None = None, steady=False):
         """Drags from a certain point, and releases to another
