@@ -1,5 +1,6 @@
 import random
 import logging
+import numpy as np
 
 from selenium.common.exceptions import MoveTargetOutOfBoundsException
 from selenium.webdriver.common.action_chains import ActionChains
@@ -97,8 +98,21 @@ class WebAdjuster:
             destination = self.__driver.execute_script(script, element_or_pos)
             
             if relative_position is None:
-                x_random_offset = random.choice(range(int(CLICK_OFFSET_MIN * 100), int(CLICK_OFFSET_MAX * 100))) / 100
-                y_random_offset = random.choice(range(int(CLICK_OFFSET_MIN * 100), int(CLICK_OFFSET_MAX * 100))) / 100
+                # Calculate element dimensions
+                element_width = element_or_pos.size["width"]
+                element_height = element_or_pos.size["height"]
+                element_area = element_width * element_height
+                
+                # Adaptive beta distribution parameters
+                # Smaller elements = tighter distribution (higher alpha/beta)
+                # Larger elements = wider distribution (lower alpha/beta)
+                # Range: 2-5 based on element area
+                alpha = beta = 2 + min(element_area / 10000, 3)
+                
+                # Beta distribution centered at 0.5 (center-biased clicking)
+                # This mimics human tendency to click near element centers
+                x_random_offset = np.random.beta(alpha, beta)
+                y_random_offset = np.random.beta(alpha, beta)
 
                 x = destination["x"] + (element_or_pos.size["width"] * x_random_offset)
                 y = destination["y"] + (element_or_pos.size["height"] * y_random_offset)
