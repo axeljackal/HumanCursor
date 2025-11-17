@@ -21,6 +21,8 @@ from humancursor.constants import (
     INDICATOR_COLOR_ACTIVE,
     HOLD_TIME_THRESHOLD,
     COORDINATES_UPDATE_INTERVAL,
+    DEFAULT_FILENAME_RANDOM_MIN,
+    DEFAULT_FILENAME_RANDOM_MAX,
 )
 
 
@@ -152,7 +154,7 @@ class HCSWindow:
         self.dest = self.destination.get()
 
         if not self.file:
-            self.file = f'humancursor_{random.randint(1, 10000)}'
+            self.file = f'humancursor_{random.randint(DEFAULT_FILENAME_RANDOM_MIN, DEFAULT_FILENAME_RANDOM_MAX)}'
 
         if self.is_valid_file_location(self.dest):
             self.root.destroy()
