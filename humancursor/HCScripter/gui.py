@@ -6,15 +6,38 @@ from tkinter import ttk, filedialog
 
 import pyautogui
 
+from humancursor.constants import (
+    WINDOW_WIDTH,
+    WINDOW_HEIGHT,
+    WINDOW_BACKGROUND_COLOR,
+    INDICATOR_BACKGROUND_COLOR,
+    INDICATOR_WIDTH,
+    INDICATOR_HEIGHT,
+    INDICATOR_RECT_X1,
+    INDICATOR_RECT_Y1,
+    INDICATOR_RECT_X2,
+    INDICATOR_RECT_Y2,
+    INDICATOR_COLOR_INACTIVE,
+    INDICATOR_COLOR_ACTIVE,
+    HOLD_TIME_THRESHOLD,
+    COORDINATES_UPDATE_INTERVAL,
+)
+
 
 class HCSWindow:
+    """GUI window for HumanCursor Scripter application.
+    
+    This window allows users to record mouse movements and actions
+    that will be saved as a Python script.
+    """
+    
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("HCS")
         self.coordinates = []
 
-        self.bg = '#3e99de'
-        self.root.geometry("340x320")
+        self.bg = WINDOW_BACKGROUND_COLOR
+        self.root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self.root.config(bg=self.bg)
         self.root.wm_attributes('-topmost', True)
         self.root.resizable(False, False)
@@ -47,12 +70,15 @@ class HCSWindow:
         self.confirm_button = ttk.Button(self.root, text="Finish", command=self.confirm, style="TButton")
         self.confirm_button.pack(side=tk.RIGHT, anchor=tk.S, padx=3, pady=3)
 
-        self.indicator = tk.Canvas(self.root, width=50, height=100, background='#577b96')
+        self.indicator = tk.Canvas(self.root, width=INDICATOR_WIDTH, height=INDICATOR_HEIGHT, background=INDICATOR_BACKGROUND_COLOR)
         self.indicator.pack()
 
-        self.indicator_color = "red"
+        self.indicator_color = INDICATOR_COLOR_INACTIVE
 
-        self.indicator.create_rectangle(15, 10, 38, 33, fill=self.indicator_color)
+        self.indicator.create_rectangle(
+            INDICATOR_RECT_X1, INDICATOR_RECT_Y1, INDICATOR_RECT_X2, INDICATOR_RECT_Y2, 
+            fill=self.indicator_color
+        )
 
         self.root.bind("<Button-1>", self.remove_focus)
         self.activate_button.bind("<Button-1>", self.remove_focus)
@@ -64,47 +90,64 @@ class HCSWindow:
         self.press_time = 0.0
         self.index = -1
 
-        self.hold_time_threshold = 0.5
+        self.hold_time_threshold = HOLD_TIME_THRESHOLD
 
         self.update_coordinates()
         self.root.mainloop()
 
     def __call__(self):
-        # Returns these values when calling the instance of the HCSWindow object as a function
+        """Returns these values when calling the instance of the HCSWindow object as a function.
+        
+        Returns:
+            tuple: (coordinates, file_name, destination_path)
+        """
         return self.coordinates, self.file, self.dest
 
     def browse_directory(self):
-        # Opens file browser
+        """Opens file browser to select destination directory."""
         folder_selected = filedialog.askdirectory()
         self.entry_var.set(folder_selected)
 
     def draw_indicator(self):
-        # Draws the square determining status of registering movements
+        """Draws the square indicating status of movement registration."""
         self.indicator.delete("all")
-        self.indicator.create_rectangle(15, 10, 38, 33, fill=self.indicator_color)
+        self.indicator.create_rectangle(
+            INDICATOR_RECT_X1, INDICATOR_RECT_Y1, INDICATOR_RECT_X2, INDICATOR_RECT_Y2,
+            fill=self.indicator_color
+        )
 
     def remove_focus(self, event):
-        # Removes focus from field inputs when touching the window or buttons
+        """Removes focus from field inputs when clicking the window or buttons.
+        
+        Args:
+            event: Tkinter event object
+        """
         if event.widget != self.file_name and event.widget != self.destination:
             self.root.focus_force()
 
     def toggle_color(self):
-        # Binding and unbinding of CTRL and Z to capture mouse coordinates
-        if self.indicator_color == "red":
+        """Toggles movement recording on/off by binding/unbinding keys.
+        
+        Binds CTRL and Z keys when activating recording mode.
+        """
+        if self.indicator_color == INDICATOR_COLOR_INACTIVE:
             self.root.bind("<KeyPress>", self.on_press_ctrl)
             self.root.bind("<KeyRelease>", self.on_release_ctrl)
             self.root.bind("<z>", self.move)
-            self.indicator_color = "green"
+            self.indicator_color = INDICATOR_COLOR_ACTIVE
         else:
             self.root.unbind("<KeyPress>")
             self.root.unbind("<KeyRelease>")
             self.root.unbind("<z>")
-            self.indicator_color = "red"
+            self.indicator_color = INDICATOR_COLOR_INACTIVE
 
         self.draw_indicator()
 
     def confirm(self):
-        # Set return values before destroying window
+        """Validates input and closes window to save the script.
+        
+        Sets return values before destroying the window.
+        """
         self.file = self.file_name.get()
         self.dest = self.destination.get()
 
@@ -117,24 +160,39 @@ class HCSWindow:
             self.destination_label.config(background='red')
 
     @staticmethod
-    def is_valid_file_location(file_path):
-        # Checks if location path inputted manually exist
+    def is_valid_file_location(file_path: str) -> bool:
+        """Checks if the provided file path exists.
+        
+        Args:
+            file_path: Path to validate
+            
+        Returns:
+            True if path exists, False otherwise
+        """
         return os.path.exists(file_path)
 
     def update_coordinates(self):
-        # Update cursor coordinates every 10 milliseconds
+        """Updates cursor coordinates display every COORDINATES_UPDATE_INTERVAL milliseconds."""
         x, y = pyautogui.position()
         self.coordinates_label.config(text=f"x: {x}, y: {y}")
-        self.root.after(10, self.update_coordinates)
+        self.root.after(COORDINATES_UPDATE_INTERVAL, self.update_coordinates)
 
     def move(self, event):
-        # Appends 'Move' coordinates to all coordinates
+        """Records a move action at current cursor position.
+        
+        Args:
+            event: Tkinter event object (triggered by 'Z' key)
+        """
         x, y = pyautogui.position()
         self.coordinates.append([x, y])
         self.index += 1
 
     def on_press_ctrl(self, event):
-        # Appends 'Click' coordinates to all coordinates
+        """Records the start of a click or drag action.
+        
+        Args:
+            event: Tkinter event object (triggered by CTRL key press)
+        """
         if event.keysym == "Control_L" and not self.ctrl_pressed:
             self.ctrl_pressed = True
             x, y = pyautogui.position()
@@ -143,8 +201,14 @@ class HCSWindow:
             self.index += 1
 
     def on_release_ctrl(self, event):
-        # Updates existing 'Click' coordinates to destination if holds less than time threshold, or
-        # Transforms existing 'Click' coordinates to 'Drag and Drop' coordinates if holds more than time threshold
+        """Finalizes a click or drag action based on hold duration.
+        
+        If CTRL was held less than HOLD_TIME_THRESHOLD, records a click.
+        If held longer, records a drag-and-drop action.
+        
+        Args:
+            event: Tkinter event object (triggered by CTRL key release)
+        """
         if event.keysym == "Control_L":
             self.ctrl_pressed = False
             x, y = pyautogui.position()
