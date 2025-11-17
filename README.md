@@ -7,7 +7,7 @@
 
 _**HumanCursor**_ is a Python package that allows you to _**simulate realistic human mouse movements**_ on the web and the system. It can be used for _**automating scripts**_ that require mouse interactions, such as _**web scraping**_, _**automated tasks**_, _**testing**_, or _**gaming**_.
 
-# Content:
+# Content
 
 - [Features](#features)
 - [Requirements](#requirements)
@@ -24,11 +24,10 @@ _**HumanCursor**_ is a Python package that allows you to _**simulate realistic h
 - Can perform various mouse actions, such as `clicking`, `dragging`, `scrolling`, and `hovering`.
 - Designed specifically to `bypass security measures and bot detection software`.
 - Includes:
-    - 🚀 `HCScripter` app to create physical cursor automated scripts without coding.
-    - 🌐 `WebCursor` module for web cursor code automation.
-        - Fully supported for `Chrome` and `Edge`, not optimal/tested for Firefox and Safari, using `Selenium`.
-    - 🤖 `SystemCursor` module for physical cursor code automation.
-    
+  - 🚀 `HCScripter` app to create physical cursor automated scripts without coding.
+  - 🌐 `WebCursor` module for web cursor code automation.
+    - Fully supported for `Chrome` and `Edge`, not optimal/tested for Firefox and Safari, using `Selenium`.
+  - 🤖 `SystemCursor` module for physical cursor code automation.
 
 # Requirements
 
@@ -55,7 +54,7 @@ After installing `humancursor` package, open up `terminal/powershell` and just c
 python -m humancursor.HCScripter.launch
 ```
 
-#### A window will show up looking like this:
+#### A window will show up looking like this
 
 <img width="270" alt="Screenshot 2023-11-29 165810" src="https://github.com/riflosnake/HumanCursor/assets/108073687/bc162443-1390-44fd-9dd9-69a8e0a9953b">
 
@@ -97,8 +96,8 @@ Some parameters explained:
 - `absolute_offset`: If you input a list of coordinates instead of webelement, if you turn this to True, the coordinates will be interpreted as absolute movement by pixels, and not like coordinates in the webpage.
 - `steady`: Tries to make movement in straight line, mimicking human, if set to True
 
-
 ## SystemCursor
+
 <div style="display:flex;flex-direction:row;">
   <img src="https://media.giphy.com/media/U9Y3uFwjVlCzoB4HJX/giphy.gif" width="30%" height="280">
   <img src="https://media.giphy.com/media/D7geMT10Eatk2X2DUF/giphy.gif" width="30%" height="280">
@@ -114,20 +113,23 @@ cursor = SystemCursor()
 
 The `SystemCursor` class, which should be used for controlling the system mouse (with pyautogui), only inherits the `move_to()`, `click_on()` and `drag_and_drop` functions, accepting only the list of 'x' and 'y' coordinates as input, as there are no elements available.
 
+# DEMONSTRATION
 
-# DEMONSTRATION:
 To quickly check how the cursor moves, you can do this:
 
 #### SystemCursor
+
   ```powershell
   python -m humancursor.test.system
   ```
+
 #### WebCursor
+
   ```powershell
   python -m humancursor.test.web
   ```
 
-#### Some code examples:
+#### Some code examples
 
 ```python
 cursor.move_to(element)  # moves to element 
