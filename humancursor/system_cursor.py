@@ -1,6 +1,7 @@
 from time import sleep
 import random
 import pyautogui
+from typing import Union, Optional, Tuple, List
 
 from humancursor.utilities.human_curve_generator import HumanizeMouseTrajectory
 from humancursor.utilities.calculate_and_randomize import generate_random_curve_parameters
@@ -22,15 +23,33 @@ class SystemCursor:
     Warning: This class modifies global pyautogui settings (MINIMUM_DURATION, 
     MINIMUM_SLEEP, PAUSE). Multiple instances may interfere with each other.
     Creating multiple SystemCursor instances will affect the same global state.
+    
+    Call cleanup() method to restore original pyautogui settings when done.
     """
     
     def __init__(self):
+        # Store original settings for cleanup
+        self._original_min_duration = pyautogui.MINIMUM_DURATION
+        self._original_min_sleep = pyautogui.MINIMUM_SLEEP
+        self._original_pause = pyautogui.PAUSE
+        
+        # Set new settings
         pyautogui.MINIMUM_DURATION = 0
         pyautogui.MINIMUM_SLEEP = 0
         pyautogui.PAUSE = 0
+    
+    def cleanup(self):
+        """Restore original pyautogui settings.
+        
+        Call this method when you're done using SystemCursor to restore
+        the original global pyautogui configuration.
+        """
+        pyautogui.MINIMUM_DURATION = self._original_min_duration
+        pyautogui.MINIMUM_SLEEP = self._original_min_sleep
+        pyautogui.PAUSE = self._original_pause
 
     @staticmethod
-    def move_to(point: list | tuple, duration: int | float | None = None, human_curve=None, steady=False):
+    def move_to(point: Union[List, Tuple], duration: Union[int, float, None] = None, human_curve=None, steady=False):
         """Moves to certain coordinates of screen
         
         Args:
@@ -61,7 +80,7 @@ class SystemCursor:
         SystemCursor._execute_curve_movement(human_curve, point, duration)
     
     @staticmethod
-    def _generate_human_curve(from_point: tuple, to_point: list | tuple, steady: bool) -> HumanizeMouseTrajectory:
+    def _generate_human_curve(from_point: Tuple, to_point: Union[List, Tuple], steady: bool) -> HumanizeMouseTrajectory:
         """Generate a human-like movement curve between two points.
         
         Args:
@@ -106,20 +125,26 @@ class SystemCursor:
         )
     
     @staticmethod
-    def _execute_curve_movement(human_curve: HumanizeMouseTrajectory, final_point: list | tuple, duration: float) -> None:
+    def _execute_curve_movement(human_curve: HumanizeMouseTrajectory, final_point: Union[List, Tuple], duration: float) -> None:
         """Execute the cursor movement along the generated curve.
         
         Args:
             human_curve: The curve to follow
             final_point: Final destination point
             duration: Total duration for the movement
+            
+        Raises:
+            ValueError: If human_curve has no points
         """
+        if not human_curve.points or len(human_curve.points) == 0:
+            raise ValueError("Human curve has no points to follow")
+        
         pyautogui.PAUSE = duration / len(human_curve.points)
         for point in human_curve.points:
             pyautogui.moveTo(point)
         pyautogui.moveTo(final_point)
 
-    def click_on(self, point: list | tuple, clicks: int = 1, click_duration: int | float = 0, steady=False):
+    def click_on(self, point: Union[List, Tuple], clicks: int = 1, click_duration: Union[int, float] = 0, steady=False):
         """Clicks a specified number of times, on the specified coordinates
         
         Args:
@@ -144,7 +169,7 @@ class SystemCursor:
             pyautogui.mouseUp()
             sleep(random.uniform(CLICK_PAUSE_MIN, CLICK_PAUSE_MAX))
 
-    def drag_and_drop(self, from_point: list | tuple, to_point: list | tuple, duration: int | float | list | tuple | None = None, steady=False):
+    def drag_and_drop(self, from_point: Union[List, Tuple], to_point: Union[List, Tuple], duration: Union[int, float, List, Tuple, None] = None, steady=False):
         """Drags from a certain point, and releases to another
         
         Args:
