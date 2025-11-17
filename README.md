@@ -1,11 +1,55 @@
 # HumanCursor: A Python package for simulating human mouse movements
 
+> **Note:** This is a fork of the [original HumanCursor repository](https://github.com/riflosnake/HumanCursor) with planned improvements and optimizations. See [PENDING_ISSUES.MD](PENDING_ISSUES.MD) for a detailed analysis and roadmap of enhancements.
+
 <div style="display:flex;flex-direction:row;">
   <img src="https://user-images.githubusercontent.com/108073687/234356166-719efddc-4618-4d32-b40e-2055d17b3edd.jpg" width="40%" height="300">
   <img src="https://media.giphy.com/media/D2D9BfjscHEG1DzBKu/giphy.gif" width="45%" height="300">
 </div>
 
 _**HumanCursor**_ is a Python package that allows you to _**simulate realistic human mouse movements**_ on the web and the system. It can be used for _**automating scripts**_ that require mouse interactions, such as _**web scraping**_, _**automated tasks**_, _**testing**_, or _**gaming**_.
+
+## What's Different in This Fork?
+
+This fork includes significant enhancements to improve code quality, maintainability, and anti-detection capabilities:
+
+### ✅ Completed Improvements
+
+- **Code Quality & Architecture**:
+  - Added comprehensive constants module for centralized configuration
+  - Refactored type hints using `Union` and `Optional` for better clarity
+  - Enhanced error handling with fallback mechanisms for edge cases
+  - Improved docstrings across all major classes and methods
+  - Added `__init__.py` files for proper package structure
+
+- **Cursor Movement Enhancements**:
+  - Enhanced logging in WebAdjuster for better debugging
+  - Improved knot generation logic to handle equal boundaries
+  - Better numeric type checking (supports numpy integer and floating types)
+  - Refactored click handling with dedicated click and hold methods
+  - Configurable pause durations for more realistic timing
+
+- **Cross-Platform Compatibility**:
+  - Migrated to `pathlib` for cross-platform file operations
+  - Updated Python requirement to 3.10+ for modern features
+  - Added pytweening dependency for better easing functions
+
+- **Developer Experience**:
+  - Added `.gitignore` for cleaner repository
+  - Improved HCScripter GUI with better error handling
+  - Enhanced random filename generation with configurable constants
+
+### 🔜 Planned Improvements
+
+The following enhancements are planned to further improve anti-detection capabilities:
+
+- **Advanced distortion algorithms**: Multi-axis noise with velocity-based scaling
+- **Fitts' Law implementation**: Distance-based movement timing for realistic behavior
+- **Enhanced Bézier curves**: Better control point distribution and boundary handling
+- **Overshoot behavior**: Simulating natural target overshoot and correction
+- **Performance optimizations**: Improved calculation efficiency and reduced overhead
+
+For a comprehensive analysis of planned improvements and the roadmap, see [PENDING_ISSUES.MD](PENDING_ISSUES.MD).
 
 # Content
 
@@ -154,6 +198,15 @@ cursor.scroll_into_view_of_element(element)  # scrolls into view of element if n
 cursor.show_cursor()  # injects javascript that will display a red dot over the cursor on webpage. Should be called only for visual testing before script and not actual work.
 
 ```
+
+# Contributing
+
+Contributions are welcome! This fork is focused on improving the realism and anti-detection capabilities of mouse movements. Please check [PENDING_ISSUES.MD](PENDING_ISSUES.MD) for planned improvements and areas where contributions would be most valuable.
+
+# Credits
+
+- **Original Repository**: [riflosnake/HumanCursor](https://github.com/riflosnake/HumanCursor)
+- **Fork Maintainer**: [axeljackal](https://github.com/axeljackal)
 
 # License
 
