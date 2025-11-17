@@ -5,6 +5,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.remote.webelement import WebElement
 
 from humancursor.utilities.web_adjuster import WebAdjuster
+from humancursor.constants import CLICK_PAUSE_MIN, CLICK_PAUSE_MAX, SCROLL_WAIT_MIN, SCROLL_WAIT_MAX
 
 
 class WebCursor:
@@ -102,12 +103,22 @@ class WebCursor:
         return True
 
     def click(self, number_of_clicks: int = 1, click_duration: float = 0):
-        """Performs the click action"""
+        """Performs the click action.
+        
+        Args:
+            number_of_clicks: Number of times to click
+            click_duration: Duration to hold the mouse button
+            
+        Returns:
+            True when complete
+        """
         if click_duration:
             click_action = lambda: self.__action.click_and_hold().pause(click_duration).release().pause(
-                random.randint(170, 280) / 1000)
+                random.randint(int(CLICK_PAUSE_MIN * 1000), int(CLICK_PAUSE_MAX * 1000)) / 1000)
         else:
-            click_action = lambda: self.__action.click().pause(random.randint(170, 280) / 1000)
+            click_action = lambda: self.__action.click().pause(
+                random.randint(int(CLICK_PAUSE_MIN * 1000), int(CLICK_PAUSE_MAX * 1000)) / 1000)
+        
         for _ in range(number_of_clicks):
             click_action()
         self.__action.perform()
@@ -232,7 +243,7 @@ class WebCursor:
                     "arguments[0].scrollIntoView({ behavior: 'smooth', block: 'center' });",
                     element,
                 )
-                sleep(random.uniform(0.8, 1.4))
+                sleep(random.uniform(SCROLL_WAIT_MIN, SCROLL_WAIT_MAX))
             return True
         elif isinstance(element, list):
             # Coordinates don't need scrolling
