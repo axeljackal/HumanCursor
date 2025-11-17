@@ -1,5 +1,6 @@
 from time import sleep
 import random
+from typing import Union, Optional, List
 
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.remote.webelement import WebElement
@@ -23,8 +24,8 @@ class WebCursor:
 
     def move_to(
             self,
-            element: WebElement | list,
-            relative_position: list | None = None,
+            element: Union[WebElement, List],
+            relative_position: Optional[List] = None,
             absolute_offset: bool = False,
             origin_coordinates=None,
             steady=False
@@ -65,10 +66,10 @@ class WebCursor:
 
     def click_on(
             self,
-            element: WebElement | list,
+            element: Union[WebElement, List],
             number_of_clicks: int = 1,
             click_duration: float = 0,
-            relative_position: list | None = None,
+            relative_position: Optional[List] = None,
             absolute_offset: bool = False,
             origin_coordinates=None,
             steady=False
@@ -131,10 +132,10 @@ class WebCursor:
 
     def drag_and_drop(
             self,
-            drag_from_element: WebElement | list,
-            drag_to_element: WebElement | list,
-            drag_from_relative_position: list | None = None,
-            drag_to_relative_position: list | None = None,
+            drag_from_element: Union[WebElement, List],
+            drag_to_element: Union[WebElement, List],
+            drag_from_relative_position: Optional[List] = None,
+            drag_to_relative_position: Optional[List] = None,
             steady=False
     ):
         """Moves to element or coordinates, clicks and holds, dragging it to another element, with human curve
@@ -170,7 +171,7 @@ class WebCursor:
     def control_scroll_bar(
             self,
             scroll_bar_element: WebElement,
-            amount_by_percentage: list,
+            amount_by_percentage: float,
             orientation: str = "horizontal",
             steady=False
     ):
@@ -212,7 +213,7 @@ class WebCursor:
 
         return True
 
-    def scroll_into_view_of_element(self, element: WebElement | list):
+    def scroll_into_view_of_element(self, element: Union[WebElement, List]):
         """Scrolls the element into viewport, if not already in it
         
         Args:
