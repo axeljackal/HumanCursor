@@ -115,11 +115,14 @@ class WebAdjuster:
         self.__action.move_by_offset(int(extra_numbers[0]), int(extra_numbers[1]))
         try:
             self.__action.perform()
-        except MoveTargetOutOfBoundsException:
-            self.__action.move_to_element(element_or_pos)
+        except MoveTargetOutOfBoundsException as e:
+            # Fallback to direct movement if human trajectory fails
             print(
-                "MoveTargetOutOfBoundsException, Cursor Moved to Point, but without Human Trajectory!"
+                f"Warning: MoveTargetOutOfBoundsException - Cursor moved to target "
+                f"without human trajectory. Error: {e}"
             )
+            self.__action.move_to_element(element_or_pos)
+            self.__action.perform()
 
         self.origin_coordinate = [
             pre_origin[0] + total_offset[0],
