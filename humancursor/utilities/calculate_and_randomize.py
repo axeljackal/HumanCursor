@@ -1,4 +1,5 @@
 import math
+from typing import Union, Tuple, List
 
 from selenium.webdriver import Chrome, Edge, Firefox, Safari
 import pytweening
@@ -26,7 +27,7 @@ from humancursor.constants import (
 )
 
 
-def calculate_edge_proximity(point: tuple | list, viewport_width: int, viewport_height: int) -> float:
+def calculate_edge_proximity(point: Union[Tuple, List], viewport_width: int, viewport_height: int) -> float:
     """Calculate how close a point is to viewport edges
     
     Args:
@@ -72,7 +73,7 @@ def calculate_absolute_offset(element, list_of_x_and_y_offsets: list) -> list:
     return [int(x_final), int(y_final)]
 
 
-def generate_random_curve_parameters(driver, pre_origin: tuple | list, post_destination: tuple | list) -> tuple:
+def generate_random_curve_parameters(driver, pre_origin: Union[Tuple, List], post_destination: Union[Tuple, List]) -> tuple:
     """Generates random parameters for the curve, the tween, number of knots, distortion, target points and boundaries.
     
     Args:
