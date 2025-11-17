@@ -8,6 +8,12 @@ from humancursor.utilities.web_adjuster import WebAdjuster
 
 
 class WebCursor:
+    """Simulates human-like cursor movements in web browsers using Selenium.
+    
+    This class provides methods to interact with web elements using natural,
+    human-like mouse movements to avoid detection by bot-detection systems.
+    """
+    
     def __init__(self, driver):
         self.__driver = driver
         self.__action = ActionChains(self.__driver, duration=0)
@@ -16,13 +22,33 @@ class WebCursor:
 
     def move_to(
             self,
-            element: WebElement or list,
-            relative_position: list = None,
+            element: WebElement | list,
+            relative_position: list | None = None,
             absolute_offset: bool = False,
             origin_coordinates=None,
             steady=False
     ):
-        """Moves to element or coordinates with human curve"""
+        """Moves to element or coordinates with human curve
+        
+        Args:
+            element: WebElement or [x, y] coordinates
+            relative_position: [x_pct, y_pct] position within element (0.0 to 1.0)
+            absolute_offset: If True, coordinates are absolute pixel offsets
+            origin_coordinates: Starting position, None uses last position
+            steady: If True, uses straighter movement path
+            
+        Returns:
+            New cursor coordinates as [x, y] or False if scroll failed
+            
+        Raises:
+            ValueError: If relative_position values are not between 0 and 1
+        """
+        if relative_position is not None:
+            if not isinstance(relative_position, list) or len(relative_position) != 2:
+                raise ValueError("relative_position must be a list of 2 values [x, y]")
+            if not all(0 <= val <= 1 for val in relative_position):
+                raise ValueError("relative_position values must be between 0.0 and 1.0")
+        
         if not self.scroll_into_view_of_element(element):
             return False
         if origin_coordinates is None:
@@ -38,15 +64,33 @@ class WebCursor:
 
     def click_on(
             self,
-            element: WebElement or list,
+            element: WebElement | list,
             number_of_clicks: int = 1,
             click_duration: float = 0,
-            relative_position: list = None,
+            relative_position: list | None = None,
             absolute_offset: bool = False,
             origin_coordinates=None,
             steady=False
     ):
-        """Moves to element or coordinates with human curve, and clicks on it a specified number of times, default is 1"""
+        """Moves to element or coordinates with human curve, and clicks on it a specified number of times, default is 1
+        
+        Args:
+            element: WebElement or [x, y] coordinates to click
+            number_of_clicks: Number of times to click (must be positive)
+            click_duration: Duration to hold mouse button in seconds
+            relative_position: [x_pct, y_pct] position within element
+            absolute_offset: If True, coordinates are absolute pixel offsets
+            origin_coordinates: Starting position
+            steady: If True, uses straighter movement path
+            
+        Raises:
+            ValueError: If number_of_clicks is not positive or click_duration is negative
+        """
+        if not isinstance(number_of_clicks, int) or number_of_clicks < 1:
+            raise ValueError(f"number_of_clicks must be a positive integer, got {number_of_clicks}")
+        if not isinstance(click_duration, (int, float)) or click_duration < 0:
+            raise ValueError(f"click_duration must be non-negative, got {click_duration}")
+        
         self.move_to(
             element,
             origin_coordinates=origin_coordinates,
@@ -76,13 +120,21 @@ class WebCursor:
 
     def drag_and_drop(
             self,
-            drag_from_element: WebElement or list,
-            drag_to_element: WebElement or list,
-            drag_from_relative_position: list = None,
-            drag_to_relative_position: list = None,
+            drag_from_element: WebElement | list,
+            drag_to_element: WebElement | list,
+            drag_from_relative_position: list | None = None,
+            drag_to_relative_position: list | None = None,
             steady=False
     ):
-        """Moves to element or coordinates, clicks and holds, dragging it to another element, with human curve"""
+        """Moves to element or coordinates, clicks and holds, dragging it to another element, with human curve
+        
+        Args:
+            drag_from_element: Source WebElement or [x, y] coordinates
+            drag_to_element: Target WebElement or [x, y] coordinates (None to just click)
+            drag_from_relative_position: [x_pct, y_pct] position within source
+            drag_to_relative_position: [x_pct, y_pct] position within target
+            steady: If True, uses straighter movement path
+        """
         if drag_from_relative_position is None:
             self.move_to(drag_from_element)
         else:
@@ -113,7 +165,20 @@ class WebCursor:
     ):
         """Adjusts any scroll bar on the webpage, by the amount you want in float number from 0 to 1
         representing percentage of fullness, orientation of the scroll bar must also be defined by user
-        horizontal or vertical"""
+        horizontal or vertical
+        
+        Args:
+            scroll_bar_element: The scrollbar WebElement
+            amount_by_percentage: Target percentage as float (0.0 to 1.0)
+            orientation: 'horizontal' or 'vertical'
+            steady: If True, uses straighter movement path
+            
+        Raises:
+            ValueError: If orientation is invalid or amount is out of range
+        """
+        if orientation not in ("horizontal", "vertical"):
+            raise ValueError(f"orientation must be 'horizontal' or 'vertical', got '{orientation}'")
+        
         direction = True if orientation == "horizontal" else False
 
         self.move_to(scroll_bar_element)
@@ -136,8 +201,18 @@ class WebCursor:
 
         return True
 
-    def scroll_into_view_of_element(self, element: WebElement):
-        """Scrolls the element into viewport, if not already in it"""
+    def scroll_into_view_of_element(self, element: WebElement | list):
+        """Scrolls the element into viewport, if not already in it
+        
+        Args:
+            element: WebElement to scroll into view, or list of coordinates
+            
+        Returns:
+            True if successful or if element is coordinates
+            
+        Raises:
+            TypeError: If element is not a WebElement or list
+        """
         if isinstance(element, WebElement):
             is_in_viewport = self.__driver.execute_script(
                 """
@@ -160,11 +235,12 @@ class WebCursor:
                 sleep(random.uniform(0.8, 1.4))
             return True
         elif isinstance(element, list):
-            """User should input correct coordinates of x and y, cant take any action"""
+            # Coordinates don't need scrolling
             return True
         else:
-            print("Incorrect Element or Coordinates values!")
-            return False
+            raise TypeError(
+                f"Element must be WebElement or list of coordinates, got {type(element).__name__}"
+            )
 
     def show_cursor(self):
         self.__driver.execute_script('''
