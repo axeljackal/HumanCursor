@@ -113,17 +113,27 @@ class WebCursor:
         Returns:
             True when complete
         """
-        if click_duration:
-            click_action = lambda: self.__action.click_and_hold().pause(click_duration).release().pause(
-                random.randint(int(CLICK_PAUSE_MIN * 1000), int(CLICK_PAUSE_MAX * 1000)) / 1000)
-        else:
-            click_action = lambda: self.__action.click().pause(
-                random.randint(int(CLICK_PAUSE_MIN * 1000), int(CLICK_PAUSE_MAX * 1000)) / 1000)
-        
         for _ in range(number_of_clicks):
-            click_action()
+            if click_duration:
+                self._perform_click_with_hold(click_duration)
+            else:
+                self._perform_simple_click()
         self.__action.perform()
         return True
+    
+    def _perform_click_with_hold(self, duration: float):
+        """Performs a click and hold action.
+        
+        Args:
+            duration: How long to hold the mouse button in seconds
+        """
+        pause_time = random.randint(int(CLICK_PAUSE_MIN * 1000), int(CLICK_PAUSE_MAX * 1000)) / 1000
+        self.__action.click_and_hold().pause(duration).release().pause(pause_time)
+    
+    def _perform_simple_click(self):
+        """Performs a simple click action."""
+        pause_time = random.randint(int(CLICK_PAUSE_MIN * 1000), int(CLICK_PAUSE_MAX * 1000)) / 1000
+        self.__action.click().pause(pause_time)
 
     def move_by_offset(self, x: int, y: int, steady=False):
         """Moves the cursor with human curve, by specified number of x and y pixels"""
