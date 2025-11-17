@@ -100,6 +100,10 @@ class WebCursor:
             relative_position=relative_position,
             steady=steady
         )
+        # Add realistic pre-click pause (humans don't click instantly after arriving)
+        pre_click_pause = random.uniform(0.05, 0.15)  # 50-150ms pause before clicking
+        sleep(pre_click_pause)
+        
         self.click(number_of_clicks=number_of_clicks, click_duration=click_duration)
         return True
 
@@ -292,3 +296,38 @@ class WebCursor:
 
             // Add event listener to update the dot's position on mousemove
             document.addEventListener("mousemove", displayRedDot);''')
+    
+    def idle_jitter(self, duration: float = 1.0, intensity: float = 1.0):
+        """Simulate natural hand tremor while hovering/idle
+        
+        Humans exhibit tiny random movements when holding the mouse still,
+        simulating natural hand tremor and micro-adjustments.
+        
+        Args:
+            duration: How long to jitter in seconds (default 1.0)
+            intensity: Jitter intensity multiplier (default 1.0, range 0.5-2.0)
+            
+        Raises:
+            ValueError: If duration or intensity are invalid
+        """
+        if not isinstance(duration, (int, float)) or duration <= 0:
+            raise ValueError(f"Duration must be positive, got {duration}")
+        if not isinstance(intensity, (int, float)) or intensity <= 0:
+            raise ValueError(f"Intensity must be positive, got {intensity}")
+        
+        intensity = max(0.5, min(intensity, 2.0))  # Clamp to reasonable range
+        
+        # Number of micro-movements (10 per second)
+        iterations = int(duration * 10)
+        interval = duration / iterations
+        
+        for _ in range(iterations):
+            # Tiny random offset (±1-3 pixels scaled by intensity)
+            max_offset = int(3 * intensity)
+            x_offset = random.randint(-max_offset, max_offset)
+            y_offset = random.randint(-max_offset, max_offset)
+            
+            # Move by small offset
+            self.move_by_offset(x_offset, y_offset, steady=True)
+            sleep(interval)
+
