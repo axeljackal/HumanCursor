@@ -61,7 +61,7 @@ class WebAdjuster:
             origin, destination_x, destination_y, steady, human_curve
         )
         
-        total_offset = self._execute_movement(human_curve, origin)
+        total_offset = self._execute_movement(human_curve, origin, element_or_pos)
         
         self.origin_coordinate = [
             pre_origin[0] + total_offset[0],
@@ -156,12 +156,13 @@ class WebAdjuster:
             target_points=target_points,
         )
     
-    def _execute_movement(self, human_curve: HumanizeMouseTrajectory, origin: list) -> list:
+    def _execute_movement(self, human_curve: HumanizeMouseTrajectory, origin: list, element_or_pos) -> list:
         """Execute the cursor movement along the curve.
         
         Args:
             human_curve: The trajectory to follow
             origin: Starting position
+            element_or_pos: The target element or position (for fallback)
             
         Returns:
             [x_offset, y_offset] total movement
