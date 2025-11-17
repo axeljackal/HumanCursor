@@ -30,7 +30,7 @@ def start_web_demo():
     for attempt in range(5):
         blocks = driver.find_elements(By.XPATH, '//div[@data-cellnumber]')  # Finding all blocks
         blocks_sorted = sorted(blocks,
-                               key=lambda x: int(x.get_attribute('data-cellnumber')))  # Sorting them numerically
+                               key=lambda x: int(x.get_attribute('data-cellnumber') or '0'))  # Sorting them numerically
         for block in blocks_sorted:
             cursor.click_on(block)  # Clicking on each block in order
 
