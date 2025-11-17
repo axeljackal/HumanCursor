@@ -5,6 +5,7 @@ from time import time
 from tkinter import ttk, filedialog
 
 import pyautogui
+from pynput import keyboard
 
 from humancursor.constants import (
     WINDOW_WIDTH,
@@ -93,6 +94,10 @@ class HCSWindow:
         self.index = -1
 
         self.hold_time_threshold = HOLD_TIME_THRESHOLD
+        
+        # Global keyboard listener
+        self.listener = None
+        self.recording_active = False
 
         self.update_coordinates()
         self.root.mainloop()
@@ -128,19 +133,26 @@ class HCSWindow:
             self.root.focus_force()
 
     def toggle_color(self):
-        """Toggles movement recording on/off by binding/unbinding keys.
+        """Toggles movement recording on/off by starting/stopping global keyboard listener.
         
-        Binds CTRL and Z keys when activating recording mode.
+        Starts global listener for CTRL and Z keys when activating recording mode.
         """
         if self.indicator_color == INDICATOR_COLOR_INACTIVE:
-            self.root.bind("<KeyPress>", self.on_press_ctrl)
-            self.root.bind("<KeyRelease>", self.on_release_ctrl)
-            self.root.bind("<z>", self.move)
+            self.recording_active = True
+            # Start global keyboard listener
+            if self.listener is None or not self.listener.running:
+                self.listener = keyboard.Listener(
+                    on_press=self.on_global_press,
+                    on_release=self.on_global_release
+                )
+                self.listener.start()
             self.indicator_color = INDICATOR_COLOR_ACTIVE
         else:
-            self.root.unbind("<KeyPress>")
-            self.root.unbind("<KeyRelease>")
-            self.root.unbind("<z>")
+            self.recording_active = False
+            # Stop global keyboard listener
+            if self.listener is not None and self.listener.running:
+                self.listener.stop()
+                self.listener = None
             self.indicator_color = INDICATOR_COLOR_INACTIVE
 
         self.draw_indicator()
@@ -157,6 +169,9 @@ class HCSWindow:
             self.file = f'humancursor_{random.randint(DEFAULT_FILENAME_RANDOM_MIN, DEFAULT_FILENAME_RANDOM_MAX)}'
 
         if self.is_valid_file_location(self.dest):
+            # Stop the listener before destroying the window
+            if self.listener is not None and self.listener.running:
+                self.listener.stop()
             self.root.destroy()
         else:
             self.destination_label.config(background='red')
@@ -179,43 +194,57 @@ class HCSWindow:
         self.coordinates_label.config(text=f"x: {x}, y: {y}")
         self.root.after(COORDINATES_UPDATE_INTERVAL, self.update_coordinates)
 
-    def move(self, event):
-        """Records a move action at current cursor position.
-        
-        Args:
-            event: Tkinter event object (triggered by 'Z' key)
-        """
+    def move(self):
+        """Records a move action at current cursor position."""
         x, y = pyautogui.position()
         self.coordinates.append([x, y])
         self.index += 1
 
-    def on_press_ctrl(self, event):
-        """Records the start of a click or drag action.
+    def on_global_press(self, key):
+        """Global keyboard press handler.
         
         Args:
-            event: Tkinter event object (triggered by CTRL key press)
+            key: pynput keyboard key object
         """
-        if event.keysym == "Control_L" and not self.ctrl_pressed:
-            self.ctrl_pressed = True
-            x, y = pyautogui.position()
-            self.press_time = time()
-            self.coordinates.append([(x, y)])
-            self.index += 1
+        if not self.recording_active:
+            return
+            
+        try:
+            # Handle 'Z' key for move action
+            if hasattr(key, 'char') and key.char == 'z':
+                self.move()
+            # Handle left CTRL key for click/drag start
+            elif key == keyboard.Key.ctrl_l and not self.ctrl_pressed:
+                self.ctrl_pressed = True
+                x, y = pyautogui.position()
+                self.press_time = time()
+                self.coordinates.append([(x, y)])
+                self.index += 1
+        except AttributeError:
+            pass
 
-    def on_release_ctrl(self, event):
-        """Finalizes a click or drag action based on hold duration.
+    def on_global_release(self, key):
+        """Global keyboard release handler.
         
+        Finalizes a click or drag action based on hold duration.
         If CTRL was held less than HOLD_TIME_THRESHOLD, records a click.
         If held longer, records a drag-and-drop action.
         
         Args:
-            event: Tkinter event object (triggered by CTRL key release)
+            key: pynput keyboard key object
         """
-        if event.keysym == "Control_L":
-            self.ctrl_pressed = False
-            x, y = pyautogui.position()
-            if time() - self.press_time > self.hold_time_threshold:
-                self.coordinates[self.index].append((x, y))
-            else:
-                self.coordinates[self.index] = self.coordinates[self.index][0]
-            self.press_time = 0.0
+        if not self.recording_active:
+            return
+            
+        try:
+            # Handle left CTRL key release
+            if key == keyboard.Key.ctrl_l and self.ctrl_pressed:
+                self.ctrl_pressed = False
+                x, y = pyautogui.position()
+                if time() - self.press_time > self.hold_time_threshold:
+                    self.coordinates[self.index].append((x, y))
+                else:
+                    self.coordinates[self.index] = self.coordinates[self.index][0]
+                self.press_time = 0.0
+        except AttributeError:
+            pass
