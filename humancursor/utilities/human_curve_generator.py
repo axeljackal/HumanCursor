@@ -1,7 +1,10 @@
 import random
 import math
+import logging
 import numpy as np
 import pytweening
+
+logger = logging.getLogger(__name__)
 
 
 class HumanizeMouseTrajectory:
@@ -68,16 +71,32 @@ class HumanizeMouseTrajectory:
             raise ValueError(
                 "down_boundary must be less than or equal to upper_boundary"
             )
-        try:
-            knotsX = np.random.choice(range(l_boundary, r_boundary) or l_boundary, size=knots_count)
-            knotsY = np.random.choice(range(d_boundary, u_boundary) or d_boundary, size=knots_count)
-        except TypeError:
-            knotsX = np.random.choice(
-                range(int(l_boundary), int(r_boundary)), size=knots_count
-            )
-            knotsY = np.random.choice(
-                range(int(d_boundary), int(u_boundary)), size=knots_count
-            )
+        
+        # Handle equal boundaries (no range to choose from)
+        if l_boundary == r_boundary:
+            knotsX = np.full(knots_count, l_boundary)
+        else:
+            try:
+                knotsX = np.random.choice(range(l_boundary, r_boundary), size=knots_count)
+            except TypeError:
+                # Fallback for float boundaries - convert to int
+                logger.debug(f"Converting float boundaries to int: l={l_boundary}, r={r_boundary}")
+                knotsX = np.random.choice(
+                    range(int(l_boundary), int(r_boundary)), size=knots_count
+                )
+        
+        if d_boundary == u_boundary:
+            knotsY = np.full(knots_count, d_boundary)
+        else:
+            try:
+                knotsY = np.random.choice(range(d_boundary, u_boundary), size=knots_count)
+            except TypeError:
+                # Fallback for float boundaries - convert to int
+                logger.debug(f"Converting float boundaries to int: d={d_boundary}, u={u_boundary}")
+                knotsY = np.random.choice(
+                    range(int(d_boundary), int(u_boundary)), size=knots_count
+                )
+        
         knots = list(zip(knotsX, knotsY))
         return knots
 
