@@ -1,3 +1,4 @@
+from pathlib import Path
 from humancursor.HCScripter.gui import HCSWindow
 
 mouse_coordinates, file_name, file_destination = HCSWindow()()
@@ -24,9 +25,21 @@ end = '\n# End\n\n'
 
 # Only create script if file_name and file_destination are provided
 if file_name and file_destination:
-    script_file = file_destination + '\\' + file_name + '.py'
     try:
-        with open(script_file, 'w') as file:
+        # Use pathlib for cross-platform path handling
+        script_path = Path(file_destination) / f"{file_name}.py"
+        
+        with open(script_path, 'w', encoding='utf-8') as file:
             file.write(imports + cursor + code + end)
-    except FileNotFoundError:
-        print('File Not Found')
+        
+        print(f"Script successfully created at: {script_path}")
+        
+    except FileNotFoundError as e:
+        print(f"Error: Directory not found - {file_destination}")
+        print(f"Details: {e}")
+    except PermissionError as e:
+        print(f"Error: Permission denied when writing to {file_destination}")
+        print(f"Details: {e}")
+    except OSError as e:
+        print(f"Error: Could not create file due to OS error")
+        print(f"Details: {e}")
