@@ -80,7 +80,16 @@ class SystemCursor:
     MINIMUM_SLEEP, PAUSE). Multiple instances may interfere with each other.
     Creating multiple SystemCursor instances will affect the same global state.
     
-    Call cleanup() method to restore original pyautogui settings when done.
+    Usage:
+        # Method 1: Manual cleanup
+        cursor = SystemCursor()
+        # ... do work ...
+        cursor.cleanup()
+        
+        # Method 2: Context manager (recommended)
+        with SystemCursor() as cursor:
+            # ... do work ...
+            pass  # cleanup happens automatically
     """
     
     def __init__(self):
@@ -96,6 +105,15 @@ class SystemCursor:
         
         # Initialize context for speed variation
         self._context = _CursorContext()
+    
+    def __enter__(self):
+        """Enter the context manager."""
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the context manager and cleanup."""
+        self.cleanup()
+        return False
     
     def cleanup(self):
         """Restore original pyautogui settings.
