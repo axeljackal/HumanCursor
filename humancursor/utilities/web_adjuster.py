@@ -1,8 +1,10 @@
 import random
+import logging
 
 from selenium.common.exceptions import MoveTargetOutOfBoundsException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver import Firefox
+from selenium.webdriver.remote.webelement import WebElement
 
 from humancursor.utilities.human_curve_generator import HumanizeMouseTrajectory
 from humancursor.utilities.calculate_and_randomize import generate_random_curve_parameters, calculate_absolute_offset
@@ -14,6 +16,8 @@ from humancursor.constants import (
     STEADY_DISTORTION_STDEV,
     STEADY_DISTORTION_FREQ,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class WebAdjuster:
@@ -205,11 +209,18 @@ class WebAdjuster:
             self.__action.perform()
         except MoveTargetOutOfBoundsException as e:
             # Fallback to direct movement if human trajectory fails
-            print(
-                f"Warning: MoveTargetOutOfBoundsException - Cursor moved to target "
-                f"without human trajectory. Error: {e}"
+            logger.warning(
+                "MoveTargetOutOfBoundsException - Attempting fallback to direct movement. Error: %s",
+                str(e)
             )
-            self.__action.move_to_element(element_or_pos)
-            self.__action.perform()
+            # Only use move_to_element if element_or_pos is a WebElement
+            if isinstance(element_or_pos, WebElement):
+                self.__action.move_to_element(element_or_pos)
+                self.__action.perform()
+                logger.info("Fallback successful using move_to_element")
+            else:
+                # For coordinate-based movements, re-raise the exception
+                logger.error("Cannot fallback for coordinate-based movement")
+                raise
         
         return total_offset
