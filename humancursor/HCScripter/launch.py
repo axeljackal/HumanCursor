@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from humancursor.HCScripter.gui import HCSWindow
 
@@ -37,9 +38,12 @@ if file_name and file_destination:
     except FileNotFoundError as e:
         print(f"Error: Directory not found - {file_destination}")
         print(f"Details: {e}")
+        sys.exit(1)
     except PermissionError as e:
         print(f"Error: Permission denied when writing to {file_destination}")
         print(f"Details: {e}")
+        sys.exit(1)
     except OSError as e:
         print(f"Error: Could not create file due to OS error")
         print(f"Details: {e}")
+        sys.exit(1)
