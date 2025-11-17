@@ -4,6 +4,27 @@ from selenium.webdriver import Chrome, Edge, Firefox, Safari
 import pytweening
 import random
 
+from humancursor.constants import (
+    VIEWPORT_MARGIN_MIN,
+    VIEWPORT_MARGIN_MAX,
+    OFFSET_BOUNDARY_RANGE_LOW,
+    OFFSET_BOUNDARY_RANGE_MID,
+    OFFSET_BOUNDARY_RANGE_HIGH,
+    OFFSET_BOUNDARY_WEIGHTS,
+    KNOTS_COUNT_OPTIONS,
+    KNOTS_COUNT_WEIGHTS,
+    DISTORTION_MEAN_MIN,
+    DISTORTION_MEAN_MAX,
+    DISTORTION_STDEV_MIN,
+    DISTORTION_STDEV_MAX,
+    DISTORTION_FREQ_MIN,
+    DISTORTION_FREQ_MAX,
+    TARGET_POINTS_RANGE_LOW,
+    TARGET_POINTS_RANGE_MID,
+    TARGET_POINTS_RANGE_HIGH,
+    TARGET_POINTS_WEIGHTS,
+)
+
 
 def calculate_absolute_offset(element, list_of_x_and_y_offsets: list) -> list:
     """Calculates exact number of pixel offsets from relative values
@@ -29,16 +50,29 @@ def calculate_absolute_offset(element, list_of_x_and_y_offsets: list) -> list:
     return [int(x_final), int(y_final)]
 
 
-def generate_random_curve_parameters(driver, pre_origin, post_destination):
-    """Generates random parameters for the curve, the tween, number of knots, distortion, target points and boundaries"""
-    web = False
-    if isinstance(driver, (Chrome, Firefox, Edge, Safari)):
-        web = True
+def generate_random_curve_parameters(driver, pre_origin: tuple | list, post_destination: tuple | list) -> tuple:
+    """Generates random parameters for the curve, the tween, number of knots, distortion, target points and boundaries.
+    
+    Args:
+        driver: Browser driver (Selenium) or screen size provider (pyautogui)
+        pre_origin: Starting point [x, y]
+        post_destination: Ending point [x, y]
+        
+    Returns:
+        Tuple of (offset_boundary_x, offset_boundary_y, knots_count, distortion_mean,
+                  distortion_st_dev, distortion_frequency, tween, target_points)
+    """
+    is_web_driver = isinstance(driver, (Chrome, Firefox, Edge, Safari))
+    
+    if is_web_driver:
         viewport_width, viewport_height = driver.get_window_size().values()
     else:
         viewport_width, viewport_height = driver.size()
-    min_width, max_width = viewport_width * 0.15, viewport_width * 0.85
-    min_height, max_height = viewport_height * 0.15, viewport_height * 0.85
+    
+    min_width = viewport_width * VIEWPORT_MARGIN_MIN
+    max_width = viewport_width * VIEWPORT_MARGIN_MAX
+    min_height = viewport_height * VIEWPORT_MARGIN_MIN
+    max_height = viewport_height * VIEWPORT_MARGIN_MAX
 
     tween_options = [
         pytweening.easeOutExpo,
@@ -57,34 +91,43 @@ def generate_random_curve_parameters(driver, pre_origin, post_destination):
     ]
 
     tween = random.choice(tween_options)
+    
+    # Select offset boundaries with weighted randomness
     offset_boundary_x = random.choice(
         random.choices(
-            [range(20, 45), range(45, 75), range(75, 100)], [0.2, 0.65, 15]
+            [OFFSET_BOUNDARY_RANGE_LOW, OFFSET_BOUNDARY_RANGE_MID, OFFSET_BOUNDARY_RANGE_HIGH],
+            OFFSET_BOUNDARY_WEIGHTS
         )[0]
     )
     offset_boundary_y = random.choice(
         random.choices(
-            [range(20, 45), range(45, 75), range(75, 100)], [0.2, 0.65, 15]
+            [OFFSET_BOUNDARY_RANGE_LOW, OFFSET_BOUNDARY_RANGE_MID, OFFSET_BOUNDARY_RANGE_HIGH],
+            OFFSET_BOUNDARY_WEIGHTS
         )[0]
     )
-    knots_count = random.choices(
-        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        [0.15, 0.36, 0.17, 0.12, 0.08, 0.04, 0.03, 0.02, 0.015, 0.005],
-    )[0]
+    
+    knots_count = random.choices(KNOTS_COUNT_OPTIONS, KNOTS_COUNT_WEIGHTS)[0]
 
-    distortion_mean = random.choice(range(80, 110)) / 100
-    distortion_st_dev = random.choice(range(85, 110)) / 100
-    distortion_frequency = random.choice(range(25, 70)) / 100
+    distortion_mean = random.choice(range(DISTORTION_MEAN_MIN, DISTORTION_MEAN_MAX)) / 100
+    distortion_st_dev = random.choice(range(DISTORTION_STDEV_MIN, DISTORTION_STDEV_MAX)) / 100
+    distortion_frequency = random.choice(range(DISTORTION_FREQ_MIN, DISTORTION_FREQ_MAX)) / 100
 
-    if web:
+    if is_web_driver:
         target_points = random.choice(
             random.choices(
-                [range(35, 45), range(45, 60), range(60, 80)], [0.53, 0.32, 0.15]
+                [TARGET_POINTS_RANGE_LOW, TARGET_POINTS_RANGE_MID, TARGET_POINTS_RANGE_HIGH],
+                TARGET_POINTS_WEIGHTS
             )[0]
         )
     else:
-        target_points = max(int(math.sqrt((pre_origin[0] - post_destination[0]) ** 2 + (pre_origin[1] - post_destination[1]) ** 2)), 2)
+        # For system cursor, calculate based on distance
+        distance = math.sqrt(
+            (pre_origin[0] - post_destination[0]) ** 2 + 
+            (pre_origin[1] - post_destination[1]) ** 2
+        )
+        target_points = max(int(distance), 2)
 
+    # Reduce complexity if origin or destination is near viewport edge
     if (
             min_width > pre_origin[0]
             or max_width < pre_origin[0]
@@ -94,6 +137,7 @@ def generate_random_curve_parameters(driver, pre_origin, post_destination):
         offset_boundary_x = 1
         offset_boundary_y = 1
         knots_count = 1
+    
     if (
             min_width > post_destination[0]
             or max_width < post_destination[0]
