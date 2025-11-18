@@ -45,16 +45,23 @@ class HumanizeMouseTrajectory:
             left_boundary, right_boundary, down_boundary, up_boundary, knots_count
         )
         points = self.generate_points(internalKnots)
+        
+        # Calculate movement distance for smoothing decisions
+        distance = math.sqrt(
+            (self.to_point[0] - self.from_point[0])**2 + 
+            (self.to_point[1] - self.from_point[1])**2
+        )
+        
         points = self.distort_points(
             points, distortion_mean, distortion_st_dev, distortion_frequency
         )
         points = self.tween_points(points, tween, target_points)
         
+        # IMPROVED: Apply smoothing filter for short movements to reduce jerkiness
+        if distance < 100:
+            points = self.smooth_points(points, distance)
+        
         # Add realistic overshoot behavior
-        distance = math.sqrt(
-            (self.to_point[0] - self.from_point[0])**2 + 
-            (self.to_point[1] - self.from_point[1])**2
-        )
         points = self.add_overshoot_correction(points, distance, target_size)
         
         # Add realistic pause patterns
@@ -155,6 +162,60 @@ class HumanizeMouseTrajectory:
             offset += pause_length
         
         return points
+    
+    def smooth_points(self, points, distance):
+        """Apply smoothing filter to reduce jerkiness on short movements
+        
+        Uses a simple moving average filter to smooth out excessive noise
+        while preserving the overall trajectory shape. Stronger smoothing
+        for very short movements.
+        
+        Args:
+            points: List of curve points
+            distance: Total movement distance in pixels
+            
+        Returns:
+            Smoothed list of points
+        """
+        if len(points) < 5:
+            return points  # Not enough points to smooth
+        
+        # Determine smoothing strength based on distance
+        if distance < 30:
+            window_size = 5  # Strong smoothing for very short movements
+        elif distance < 60:
+            window_size = 3  # Moderate smoothing
+        else:
+            window_size = 3  # Light smoothing
+        
+        # Apply moving average filter (keep first and last points exact)
+        smoothed = [points[0]]
+        
+        for i in range(1, len(points) - 1):
+            # Calculate window bounds
+            half_window = window_size // 2
+            start_idx = max(1, i - half_window)
+            end_idx = min(len(points) - 1, i + half_window + 1)
+            
+            # Calculate average of window
+            window_points = points[start_idx:end_idx]
+            avg_x = sum(p[0] for p in window_points) / len(window_points)
+            avg_y = sum(p[1] for p in window_points) / len(window_points)
+            
+            # Blend original and smoothed based on distance
+            # Very short movements: more aggressive smoothing (70% smoothed)
+            # Longer movements: lighter smoothing (50% smoothed)
+            blend_factor = 0.7 if distance < 30 else 0.5
+            
+            smoothed_x = points[i][0] * (1 - blend_factor) + avg_x * blend_factor
+            smoothed_y = points[i][1] * (1 - blend_factor) + avg_y * blend_factor
+            
+            smoothed.append((smoothed_x, smoothed_y))
+        
+        smoothed.append(points[-1])
+        
+        return smoothed
+
 
     def generate_internal_knots(
         self, l_boundary, r_boundary, d_boundary, u_boundary, knots_count
@@ -245,11 +306,14 @@ class HumanizeMouseTrajectory:
         Args:
             points: List of curve points to distort
             distortion_mean: Mean for Gaussian noise (legacy parameter, now uses 0)
-            distortion_st_dev: Standard deviation for Gaussian noise
-            distortion_frequency: Probability of applying distortion to each point
+            distortion_st_dev: Standard deviation for Gaussian noise (must be non-negative)
+            distortion_frequency: Probability of applying distortion to each point (0.0 to 1.0)
             
         Returns:
             List of distorted points with velocity-based noise on both axes
+            
+        Raises:
+            ValueError: If distortion parameters are invalid or out of range
         """
         if not (
             self.check_if_numeric(distortion_mean)
@@ -260,7 +324,13 @@ class HumanizeMouseTrajectory:
         if not self.check_if_list_of_points(points):
             raise ValueError("points must be valid list of points")
         if not (0 <= distortion_frequency <= 1):
-            raise ValueError("distortion_frequency must be in range [0,1]")
+            raise ValueError(f"distortion_frequency must be in range [0,1], got {distortion_frequency}")
+        if distortion_st_dev < 0:
+            raise ValueError(f"distortion_st_dev must be non-negative, got {distortion_st_dev}")
+        
+        # Handle edge case: empty or single-point list
+        if len(points) < 2:
+            return points
 
         distorted = [points[0]]  # Keep first point exact
         
@@ -289,17 +359,25 @@ class HumanizeMouseTrajectory:
         """Modifies points by tween with directional acceleration profiles
         
         Args:
-            points: List of curve points
-            tween: Easing function
-            target_points: Number of target points to generate
+            points: List of curve points (must have at least 2 points)
+            tween: Easing function (callable that accepts float 0-1 and returns float)
+            target_points: Number of target points to generate (must be >= 2)
             
         Returns:
             List of tweened points with directional acceleration adjustments
+            
+        Raises:
+            ValueError: If points list is invalid or target_points is less than 2
+            TypeError: If tween is not callable
         """
         if not self.check_if_list_of_points(points):
             raise ValueError("List of points not valid")
+        if len(points) < 2:
+            raise ValueError(f"Points list must have at least 2 points, got {len(points)}")
         if not isinstance(target_points, int) or target_points < 2:
-            raise ValueError("target_points must be an integer greater or equal to 2")
+            raise ValueError(f"target_points must be an integer >= 2, got {target_points}")
+        if not callable(tween):
+            raise TypeError(f"tween must be callable, got {type(tween).__name__}")
 
         # Calculate movement direction
         dx = self.to_point[0] - self.from_point[0]
@@ -313,6 +391,7 @@ class HumanizeMouseTrajectory:
         # Vertical movements: slightly more careful (gravity/ergonomics)
         res = []
         for i in range(target_points):
+            # Safe division: target_points is validated to be >= 2
             base_progress = float(i) / (target_points - 1)
             
             if is_horizontal:

@@ -32,15 +32,29 @@ def calculate_edge_proximity(point: Union[Tuple, List], viewport_width: int, vie
     
     Args:
         point: (x, y) coordinates as tuple or list
-        viewport_width: Width of viewport
-        viewport_height: Height of viewport
+        viewport_width: Width of viewport (must be positive)
+        viewport_height: Height of viewport (must be positive)
         
     Returns:
         Float between 0 (center) and 1 (edge) representing proximity to nearest edge
+        
+    Raises:
+        ValueError: If viewport dimensions are not positive
+        TypeError: If point is not a tuple or list with 2 elements
     """
+    if not isinstance(point, (tuple, list)) or len(point) != 2:
+        raise TypeError(f"Point must be a tuple or list with 2 elements, got {type(point).__name__} with {len(point) if hasattr(point, '__len__') else 'unknown'} elements")
+    
+    if not isinstance(viewport_width, (int, float)) or viewport_width <= 0:
+        raise ValueError(f"viewport_width must be a positive number, got {viewport_width}")
+    
+    if not isinstance(viewport_height, (int, float)) or viewport_height <= 0:
+        raise ValueError(f"viewport_height must be a positive number, got {viewport_height}")
+    
     x, y = point
     
     # Distance to nearest edge (normalized to 0-1, where 1 is center, 0 is edge)
+    # Safe division: viewport dimensions are validated to be positive
     x_proximity = min(x / viewport_width, (viewport_width - x) / viewport_width) * 2
     y_proximity = min(y / viewport_height, (viewport_height - y) / viewport_height) * 2
     
@@ -60,13 +74,34 @@ def calculate_absolute_offset(element, list_of_x_and_y_offsets: list) -> list:
         [x_pixels, y_pixels] as integers
         
     Raises:
-        ValueError: If offsets list doesn't have exactly 2 values
+        ValueError: If offsets list doesn't have exactly 2 values or values out of range
+        TypeError: If element doesn't have size property or offsets aren't numeric
     """
     if not isinstance(list_of_x_and_y_offsets, list) or len(list_of_x_and_y_offsets) != 2:
-        raise ValueError("Offsets must be a list of 2 values [x, y]")
+        raise ValueError(f"Offsets must be a list of 2 values [x, y], got {type(list_of_x_and_y_offsets).__name__} with {len(list_of_x_and_y_offsets) if hasattr(list_of_x_and_y_offsets, '__len__') else 'unknown'} elements")
     
-    dimensions = element.size
+    # Validate offset values are numeric and in valid range
+    for i, offset in enumerate(list_of_x_and_y_offsets):
+        if not isinstance(offset, (int, float)):
+            raise TypeError(f"Offset {i} must be numeric, got {type(offset).__name__}")
+        if not 0 <= offset <= 1:
+            raise ValueError(f"Offset {i} must be between 0.0 and 1.0, got {offset}")
+    
+    # Validate element has size property
+    try:
+        dimensions = element.size
+    except AttributeError:
+        raise TypeError(f"Element must have 'size' property (WebElement expected), got {type(element).__name__}")
+    
+    # Validate dimensions are present and positive
+    if not isinstance(dimensions, dict) or 'width' not in dimensions or 'height' not in dimensions:
+        raise ValueError(f"Element size must be a dict with 'width' and 'height' keys, got {dimensions}")
+    
     width, height = dimensions["width"], dimensions["height"]
+    
+    if width < 0 or height < 0:
+        raise ValueError(f"Element dimensions must be non-negative, got width={width}, height={height}")
+    
     x_final = width * list_of_x_and_y_offsets[0]
     y_final = height * list_of_x_and_y_offsets[1]
 
@@ -84,13 +119,43 @@ def generate_random_curve_parameters(driver, pre_origin: Union[Tuple, List], pos
     Returns:
         Tuple of (offset_boundary_x, offset_boundary_y, knots_count, distortion_mean,
                   distortion_st_dev, distortion_frequency, tween, target_points)
+                  
+    Raises:
+        TypeError: If points are not tuples/lists or driver is invalid
+        ValueError: If points don't have exactly 2 coordinates or coordinates are not numeric
     """
+    # Validate input points
+    if not isinstance(pre_origin, (tuple, list)) or len(pre_origin) != 2:
+        raise TypeError(f"pre_origin must be a tuple or list with 2 elements, got {type(pre_origin).__name__}")
+    
+    if not isinstance(post_destination, (tuple, list)) or len(post_destination) != 2:
+        raise TypeError(f"post_destination must be a tuple or list with 2 elements, got {type(post_destination).__name__}")
+    
+    # Validate coordinates are numeric
+    for i, coord in enumerate(pre_origin):
+        if not isinstance(coord, (int, float)):
+            raise ValueError(f"pre_origin coordinate {i} must be numeric, got {type(coord).__name__}")
+    
+    for i, coord in enumerate(post_destination):
+        if not isinstance(coord, (int, float)):
+            raise ValueError(f"post_destination coordinate {i} must be numeric, got {type(coord).__name__}")
+    
     is_web_driver = isinstance(driver, (Chrome, Firefox, Edge, Safari))
     
-    if is_web_driver:
-        viewport_width, viewport_height = driver.get_window_size().values()
-    else:
-        viewport_width, viewport_height = driver.size()
+    try:
+        if is_web_driver:
+            viewport_width, viewport_height = driver.get_window_size().values()
+        else:
+            viewport_width, viewport_height = driver.size()
+    except (AttributeError, TypeError) as e:
+        raise TypeError(f"Driver must have get_window_size() method or size() method, got {type(driver).__name__}: {e}")
+    
+    # Validate viewport dimensions
+    if not isinstance(viewport_width, (int, float)) or viewport_width <= 0:
+        raise ValueError(f"Viewport width must be positive, got {viewport_width}")
+    
+    if not isinstance(viewport_height, (int, float)) or viewport_height <= 0:
+        raise ValueError(f"Viewport height must be positive, got {viewport_height}")
     
     min_width = viewport_width * VIEWPORT_MARGIN_MIN
     max_width = viewport_width * VIEWPORT_MARGIN_MAX
@@ -156,10 +221,26 @@ def generate_random_curve_parameters(driver, pre_origin: Union[Tuple, List], pos
     distortion_st_dev = random.choice(range(DISTORTION_STDEV_MIN, DISTORTION_STDEV_MAX)) / 100
     distortion_frequency = random.choice(range(DISTORTION_FREQ_MIN, DISTORTION_FREQ_MAX)) / 100
 
+    # IMPROVED: Scale distortion based on distance to reduce jerkiness on short movements
+    # Short movements need less distortion to maintain smoothness
+    if distance < 30:
+        # Very short movements: reduce distortion significantly (60% reduction)
+        distortion_st_dev *= 0.4
+        distortion_frequency *= 0.5
+    elif distance < 75:
+        # Short movements: moderate distortion reduction (30% reduction)
+        distortion_st_dev *= 0.7
+        distortion_frequency *= 0.8
+
     # Use logarithmic scaling with distance-based tiers
-    # Short movements: higher density | Long movements: logarithmic growth
-    if distance < 100:
-        target_points = max(int(distance * 0.6), 30)  # 0.6 points/pixel, min 30
+    # IMPROVED: Reduced point density for very short movements to improve smoothness
+    # Short movements: lower density to reduce jerkiness | Long movements: logarithmic growth
+    if distance < 50:
+        # Very short movements: significantly reduced points to minimize jerkiness
+        target_points = max(int(distance * 0.3), 10)  # 0.3 points/pixel, min 10
+    elif distance < 100:
+        # Short movements: moderate point density
+        target_points = max(int(distance * 0.5), 15)  # 0.5 points/pixel, min 15
     elif distance < 500:
         target_points = int(60 + 40 * math.log2(distance / 100))  # Logarithmic scaling
     else:
