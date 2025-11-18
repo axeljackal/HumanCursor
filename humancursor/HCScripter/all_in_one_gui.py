@@ -317,7 +317,7 @@ class AllInOneHCS:
     
     def on_mouse_move(self, x, y):
         """Handle mouse move events in auto recording mode."""
-        if not self.recording_active:
+        if not self.recording_active or self.recording_start_time is None:
             return
         
         current_pos = (x, y)
@@ -341,7 +341,7 @@ class AllInOneHCS:
     
     def on_mouse_click(self, x, y, button, pressed):
         """Handle mouse click events in auto recording mode."""
-        if not self.recording_active:
+        if not self.recording_active or self.recording_start_time is None:
             return
         
         if pressed:
