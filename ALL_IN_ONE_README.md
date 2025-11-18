@@ -13,11 +13,13 @@ python -m humancursor.HCScripter.launch_all_in_one
 ### 📹 Recording Modes
 
 #### **Auto Capture Mode** (NEW!)
+
 - **Automatic recording**: Simply click "Record" and all your mouse movements and clicks are captured automatically
 - **Smart sampling**: Records movements every 10+ pixels to reduce noise
 - **Natural playback**: Captures real mouse behavior for realistic automation
 
 #### **Manual Mode** (Hotkey-based)
+
 - **Precise control**: Mark specific positions using hotkeys
 - **Keyboard shortcuts**:
   - **Z**: Record move to current position
@@ -85,4 +87,3 @@ python -m humancursor.HCScripter.launch_all_in_one
 - Playback uses smooth, steady movements for reliability
 - Speed affects both movement duration and inter-action delays
 - Saved `.py` scripts are standalone and executable
-

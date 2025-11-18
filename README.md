@@ -15,11 +15,11 @@ This fork includes significant enhancements to improve code quality, maintainabi
 
 ### ✅ Completed Improvements
 
-#### **Short Trajectory Smoothness Improvements** (v2.2 - November 2024)
+#### **Short Trajectory Smoothness Improvements** (v2.2 - November 2025)
 
 Critical fixes to address jerkiness and chaotic behavior in very short movements:
 
-1. **Distance-Adaptive Point Density** 
+1. **Distance-Adaptive Point Density**
    - **Before**: Fixed minimum 30 points even for 10px movements (3 points/pixel)
    - **After**: Reduced density for short movements
      - Very short (<50px): `0.3 points/pixel`, min 10 points
@@ -50,7 +50,7 @@ Critical fixes to address jerkiness and chaotic behavior in very short movements
    - **Security**: CodeQL scan clean - zero vulnerabilities found
    - **Impact**: Robust error handling prevents crashes and undefined behavior
 
-#### **Anti-Detection Enhancements** (v2.0 - November 2024)
+#### **Anti-Detection Enhancements** (v2.0 - November 2025)
 
 The following major improvements have been implemented to significantly enhance realism and evade sophisticated bot detection:
 
@@ -139,7 +139,7 @@ The following major improvements have been implemented to significantly enhance 
   - Improved HCScripter GUI with better error handling
   - Enhanced random filename generation with configurable constants
 
-#### **Additional Behavioral Enhancements** (v2.1 - November 2024)
+#### **Additional Behavioral Enhancements** (v2.1 - November 2025)
 
 Building on v2.0, these optional low-priority features add final polish to behavioral realism:
 
@@ -148,7 +148,7 @@ Building on v2.0, these optional low-priority features add final polish to behav
    - **Implementation**: 1-2 pauses (20-40ms) injected at 10-80% of trajectory for movements >300px
    - **Pre-Click Pause**: 50-150ms delay before clicking (simulates hand settling)
    - **Impact**: Eliminates robotic instant-click behavior, adds natural decision points
-   - **Locations**: 
+   - **Locations**:
      - `humancursor/utilities/human_curve_generator.py::add_pause_patterns()`
      - `humancursor/system_cursor.py::click_on()` (line ~270)
      - `humancursor/web_cursor.py::click_on()` (line ~95)
@@ -181,7 +181,7 @@ Building on v2.0, these optional low-priority features add final polish to behav
 
 5. **Optimized Bézier Calculation**
    - **Before**: Recalculated `binomial(n, i)` for every point (~40% of CPU time)
-   - **After**: 
+   - **After**:
      - Precomputed binomial coefficients cached per curve
      - Pascal's triangle algorithm instead of factorial (O(k) vs O(n))
      - Optimized power calculations for small exponents
