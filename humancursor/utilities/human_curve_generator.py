@@ -1,6 +1,7 @@
 import random
 import math
 import logging
+from typing import Callable
 import numpy as np
 import pytweening
 
@@ -355,7 +356,7 @@ class HumanizeMouseTrajectory:
         distorted.append(points[-1])  # Keep last point exact
         return distorted
 
-    def tween_points(self, points, tween, target_points):
+    def tween_points(self, points, tween: Callable[[float], float], target_points):
         """Modifies points by tween with directional acceleration profiles
         
         Args:
@@ -396,10 +397,10 @@ class HumanizeMouseTrajectory:
             
             if is_horizontal:
                 # Horizontal: slightly faster acceleration, quicker deceleration
-                adjusted_progress = tween(base_progress ** 0.95)
+                adjusted_progress = float(tween(base_progress ** 0.95))
             else:
                 # Vertical: slightly slower, more controlled
-                adjusted_progress = tween(base_progress ** 1.05)
+                adjusted_progress = float(tween(base_progress ** 1.05))
             
             # Jerk minimization: smooth out start and end with cubic easing
             if i < 3:  # First 3 points: smooth start (reduce jerk)
