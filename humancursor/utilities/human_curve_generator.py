@@ -306,11 +306,14 @@ class HumanizeMouseTrajectory:
         Args:
             points: List of curve points to distort
             distortion_mean: Mean for Gaussian noise (legacy parameter, now uses 0)
-            distortion_st_dev: Standard deviation for Gaussian noise
-            distortion_frequency: Probability of applying distortion to each point
+            distortion_st_dev: Standard deviation for Gaussian noise (must be non-negative)
+            distortion_frequency: Probability of applying distortion to each point (0.0 to 1.0)
             
         Returns:
             List of distorted points with velocity-based noise on both axes
+            
+        Raises:
+            ValueError: If distortion parameters are invalid or out of range
         """
         if not (
             self.check_if_numeric(distortion_mean)
@@ -321,7 +324,13 @@ class HumanizeMouseTrajectory:
         if not self.check_if_list_of_points(points):
             raise ValueError("points must be valid list of points")
         if not (0 <= distortion_frequency <= 1):
-            raise ValueError("distortion_frequency must be in range [0,1]")
+            raise ValueError(f"distortion_frequency must be in range [0,1], got {distortion_frequency}")
+        if distortion_st_dev < 0:
+            raise ValueError(f"distortion_st_dev must be non-negative, got {distortion_st_dev}")
+        
+        # Handle edge case: empty or single-point list
+        if len(points) < 2:
+            return points
 
         distorted = [points[0]]  # Keep first point exact
         
@@ -350,17 +359,25 @@ class HumanizeMouseTrajectory:
         """Modifies points by tween with directional acceleration profiles
         
         Args:
-            points: List of curve points
-            tween: Easing function
-            target_points: Number of target points to generate
+            points: List of curve points (must have at least 2 points)
+            tween: Easing function (callable that accepts float 0-1 and returns float)
+            target_points: Number of target points to generate (must be >= 2)
             
         Returns:
             List of tweened points with directional acceleration adjustments
+            
+        Raises:
+            ValueError: If points list is invalid or target_points is less than 2
+            TypeError: If tween is not callable
         """
         if not self.check_if_list_of_points(points):
             raise ValueError("List of points not valid")
+        if len(points) < 2:
+            raise ValueError(f"Points list must have at least 2 points, got {len(points)}")
         if not isinstance(target_points, int) or target_points < 2:
-            raise ValueError("target_points must be an integer greater or equal to 2")
+            raise ValueError(f"target_points must be an integer >= 2, got {target_points}")
+        if not callable(tween):
+            raise TypeError(f"tween must be callable, got {type(tween).__name__}")
 
         # Calculate movement direction
         dx = self.to_point[0] - self.from_point[0]
@@ -374,6 +391,7 @@ class HumanizeMouseTrajectory:
         # Vertical movements: slightly more careful (gravity/ergonomics)
         res = []
         for i in range(target_points):
+            # Safe division: target_points is validated to be >= 2
             base_progress = float(i) / (target_points - 1)
             
             if is_horizontal:

@@ -134,11 +134,18 @@ class SystemCursor:
         Args:
             from_point: Starting coordinates (x, y)
             to_point: Ending coordinates (x, y)
-            target_size: Target size in pixels (smaller = slower)
+            target_size: Target size in pixels (must be positive, smaller = slower)
             
         Returns:
             Duration in seconds for the movement
+            
+        Raises:
+            ValueError: If target_size is not positive or points are invalid
         """
+        # Validate target_size
+        if not isinstance(target_size, (int, float)) or target_size <= 0:
+            raise ValueError(f"target_size must be a positive number, got {target_size}")
+        
         # Calculate Euclidean distance
         distance = math.sqrt(
             (to_point[0] - from_point[0])**2 + 
@@ -150,9 +157,11 @@ class SystemCursor:
         b = random.uniform(0.12, 0.18)     # Slope (movement time component)
         
         # Use provided target size (smaller targets = longer time)
-        target_width = max(target_size, 5)  # Minimum 5px to avoid division issues
+        # Ensure minimum 5px to avoid numerical issues
+        target_width = max(target_size, 5)
         
         # Calculate Index of Difficulty and apply Fitts' Law
+        # Safe: distance >= 0, target_width >= 5, so division is safe
         index_of_difficulty = math.log2(distance / target_width + 1)
         base_time = a + b * index_of_difficulty
         
