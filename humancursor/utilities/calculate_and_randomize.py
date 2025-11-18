@@ -156,10 +156,26 @@ def generate_random_curve_parameters(driver, pre_origin: Union[Tuple, List], pos
     distortion_st_dev = random.choice(range(DISTORTION_STDEV_MIN, DISTORTION_STDEV_MAX)) / 100
     distortion_frequency = random.choice(range(DISTORTION_FREQ_MIN, DISTORTION_FREQ_MAX)) / 100
 
+    # IMPROVED: Scale distortion based on distance to reduce jerkiness on short movements
+    # Short movements need less distortion to maintain smoothness
+    if distance < 30:
+        # Very short movements: reduce distortion significantly (60% reduction)
+        distortion_st_dev *= 0.4
+        distortion_frequency *= 0.5
+    elif distance < 75:
+        # Short movements: moderate distortion reduction (30% reduction)
+        distortion_st_dev *= 0.7
+        distortion_frequency *= 0.8
+
     # Use logarithmic scaling with distance-based tiers
-    # Short movements: higher density | Long movements: logarithmic growth
-    if distance < 100:
-        target_points = max(int(distance * 0.6), 30)  # 0.6 points/pixel, min 30
+    # IMPROVED: Reduced point density for very short movements to improve smoothness
+    # Short movements: lower density to reduce jerkiness | Long movements: logarithmic growth
+    if distance < 50:
+        # Very short movements: significantly reduced points to minimize jerkiness
+        target_points = max(int(distance * 0.3), 10)  # 0.3 points/pixel, min 10
+    elif distance < 100:
+        # Short movements: moderate point density
+        target_points = max(int(distance * 0.5), 15)  # 0.5 points/pixel, min 15
     elif distance < 500:
         target_points = int(60 + 40 * math.log2(distance / 100))  # Logarithmic scaling
     else:

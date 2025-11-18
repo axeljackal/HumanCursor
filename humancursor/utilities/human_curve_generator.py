@@ -45,16 +45,23 @@ class HumanizeMouseTrajectory:
             left_boundary, right_boundary, down_boundary, up_boundary, knots_count
         )
         points = self.generate_points(internalKnots)
+        
+        # Calculate movement distance for smoothing decisions
+        distance = math.sqrt(
+            (self.to_point[0] - self.from_point[0])**2 + 
+            (self.to_point[1] - self.from_point[1])**2
+        )
+        
         points = self.distort_points(
             points, distortion_mean, distortion_st_dev, distortion_frequency
         )
         points = self.tween_points(points, tween, target_points)
         
+        # IMPROVED: Apply smoothing filter for short movements to reduce jerkiness
+        if distance < 100:
+            points = self.smooth_points(points, distance)
+        
         # Add realistic overshoot behavior
-        distance = math.sqrt(
-            (self.to_point[0] - self.from_point[0])**2 + 
-            (self.to_point[1] - self.from_point[1])**2
-        )
         points = self.add_overshoot_correction(points, distance, target_size)
         
         # Add realistic pause patterns
@@ -155,6 +162,60 @@ class HumanizeMouseTrajectory:
             offset += pause_length
         
         return points
+    
+    def smooth_points(self, points, distance):
+        """Apply smoothing filter to reduce jerkiness on short movements
+        
+        Uses a simple moving average filter to smooth out excessive noise
+        while preserving the overall trajectory shape. Stronger smoothing
+        for very short movements.
+        
+        Args:
+            points: List of curve points
+            distance: Total movement distance in pixels
+            
+        Returns:
+            Smoothed list of points
+        """
+        if len(points) < 5:
+            return points  # Not enough points to smooth
+        
+        # Determine smoothing strength based on distance
+        if distance < 30:
+            window_size = 5  # Strong smoothing for very short movements
+        elif distance < 60:
+            window_size = 3  # Moderate smoothing
+        else:
+            window_size = 3  # Light smoothing
+        
+        # Apply moving average filter (keep first and last points exact)
+        smoothed = [points[0]]
+        
+        for i in range(1, len(points) - 1):
+            # Calculate window bounds
+            half_window = window_size // 2
+            start_idx = max(1, i - half_window)
+            end_idx = min(len(points) - 1, i + half_window + 1)
+            
+            # Calculate average of window
+            window_points = points[start_idx:end_idx]
+            avg_x = sum(p[0] for p in window_points) / len(window_points)
+            avg_y = sum(p[1] for p in window_points) / len(window_points)
+            
+            # Blend original and smoothed based on distance
+            # Very short movements: more aggressive smoothing (70% smoothed)
+            # Longer movements: lighter smoothing (50% smoothed)
+            blend_factor = 0.7 if distance < 30 else 0.5
+            
+            smoothed_x = points[i][0] * (1 - blend_factor) + avg_x * blend_factor
+            smoothed_y = points[i][1] * (1 - blend_factor) + avg_y * blend_factor
+            
+            smoothed.append((smoothed_x, smoothed_y))
+        
+        smoothed.append(points[-1])
+        
+        return smoothed
+
 
     def generate_internal_knots(
         self, l_boundary, r_boundary, d_boundary, u_boundary, knots_count
