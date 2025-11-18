@@ -27,7 +27,7 @@ from humancursor.constants import (
 )
 
 
-def calculate_edge_proximity(point: Union[Tuple, List], viewport_width: int, viewport_height: int) -> float:
+def calculate_edge_proximity(point: Union[Tuple, List], viewport_width: Union[int, float], viewport_height: Union[int, float]) -> float:
     """Calculate how close a point is to viewport edges
     
     Args:
